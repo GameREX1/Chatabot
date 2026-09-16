@@ -16,22 +16,43 @@
       --bg: #212121;
       --sidebar: #171717;
       --panel: #2f2f2f;
-      --hover: #2a2a2a;
-      --border: #3a3a3a;
-      --text: #fff;
+      --panel-hover: #3a3a3a;
+      --border: #3f3f3f;
+      --text: #ececec;
       --muted: #9b9b9b;
+      --soft: #676767;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
     }
 
     body {
-      font-family: Arial, Helvetica, sans-serif;
+      font-family:
+        Inter,
+        ui-sans-serif,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        Roboto,
+        Helvetica,
+        Arial,
+        sans-serif;
       background: var(--bg);
       color: var(--text);
-      height: 100vh;
       overflow: hidden;
     }
 
-    button {
+    button,
+    textarea,
+    input {
       font-family: inherit;
+    }
+
+    button {
+      -webkit-tap-highlight-color: transparent;
     }
 
     .app {
@@ -40,14 +61,18 @@
       height: 100vh;
     }
 
+    /* =========================
+       SIDEBAR
+    ========================= */
+
     .sidebar {
-      width: 270px;
+      width: 260px;
       background: var(--sidebar);
       display: flex;
       flex-direction: column;
-      padding: 12px;
+      padding: 10px;
       flex-shrink: 0;
-      border-right: 1px solid #242424;
+      border-right: 1px solid #292929;
       z-index: 20;
     }
 
@@ -57,49 +82,43 @@
       gap: 10px;
       padding: 10px 9px 18px;
       font-size: 20px;
-      font-weight: 700;
-    }
-
-    .brand-icon,
-    .welcome-logo {
-      background: #fff;
-      color: #171717;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 800;
+      font-weight: 650;
+      letter-spacing: -.3px;
     }
 
     .brand-icon {
       width: 34px;
       height: 34px;
-      border-radius: 10px;
+      border-radius: 9px;
+      object-fit: cover;
+      flex-shrink: 0;
     }
 
     .new-chat {
       width: 100%;
-      border: 1px solid #3b3b3b;
+      border: 1px solid #444;
       background: transparent;
-      color: white;
-      padding: 12px 13px;
+      color: #eee;
+      padding: 11px 13px;
       border-radius: 9px;
       cursor: pointer;
       text-align: left;
       font-size: 14px;
-      margin-bottom: 22px;
-      transition: .15s;
+      margin-bottom: 23px;
+      transition: background .15s ease;
     }
 
     .new-chat:hover {
-      background: var(--hover);
+      background: #252525;
     }
 
     .history-title {
-      font-size: 12px;
+      font-size: 11px;
       color: #777;
       padding: 0 10px 9px;
       text-transform: uppercase;
-      letter-spacing: .4px;
+      letter-spacing: .5px;
+      font-weight: 600;
     }
 
     .history {
@@ -108,10 +127,21 @@
       min-height: 0;
     }
 
+    .history::-webkit-scrollbar,
+    .chat-area::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .history::-webkit-scrollbar-thumb,
+    .chat-area::-webkit-scrollbar-thumb {
+      background: #444;
+      border-radius: 20px;
+    }
+
     .history-item {
       padding: 10px 11px;
       border-radius: 8px;
-      color: #d2d2d2;
+      color: #d0d0d0;
       font-size: 14px;
       cursor: pointer;
       white-space: nowrap;
@@ -122,17 +152,17 @@
 
     .history-item:hover,
     .history-item.active {
-      background: var(--hover);
+      background: #252525;
     }
 
     .empty-history {
-      color: #666;
+      color: #626262;
       font-size: 13px;
       padding: 10px;
     }
 
     .profile {
-      border-top: 1px solid #303030;
+      border-top: 1px solid #2c2c2c;
       padding: 12px 5px 3px;
       display: flex;
       align-items: center;
@@ -140,10 +170,10 @@
     }
 
     .avatar {
-      width: 36px;
-      height: 36px;
+      width: 35px;
+      height: 35px;
       border-radius: 50%;
-      background: #3b3b3b;
+      background: #3a3a3a;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -172,11 +202,19 @@
     .profile-button {
       border: none;
       background: transparent;
-      color: #aaa;
+      color: #999;
       cursor: pointer;
       font-size: 18px;
       padding: 5px;
     }
+
+    .profile-button:hover {
+      color: white;
+    }
+
+    /* =========================
+       MAIN
+    ========================= */
 
     .main {
       flex: 1;
@@ -184,6 +222,7 @@
       flex-direction: column;
       min-width: 0;
       position: relative;
+      background: var(--bg);
     }
 
     .topbar {
@@ -193,19 +232,20 @@
       justify-content: space-between;
       padding: 0 22px;
       border-bottom: 1px solid #303030;
-      background: var(--bg);
+      background: rgba(33,33,33,.96);
       flex-shrink: 0;
     }
 
     .top-left {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 11px;
     }
 
     .model-name {
       font-size: 15px;
       font-weight: 600;
+      color: #eee;
     }
 
     .model-badge {
@@ -222,28 +262,35 @@
       gap: 8px;
     }
 
-    .top-button {
-      border: 1px solid #3a3a3a;
+    .top-button,
+    .logout-button {
+      border: 1px solid #444;
       background: transparent;
       color: #ddd;
       padding: 7px 11px;
       border-radius: 8px;
       cursor: pointer;
       font-size: 12px;
+      transition: background .15s ease;
     }
 
-    .top-button:hover {
-      background: var(--hover);
+    .top-button:hover,
+    .logout-button:hover {
+      background: #2b2b2b;
     }
 
     .menu-button {
       display: none;
       border: none;
       background: transparent;
-      color: white;
+      color: #eee;
       font-size: 22px;
       cursor: pointer;
     }
+
+    /* =========================
+       CHAT
+    ========================= */
 
     .chat-area {
       flex: 1;
@@ -267,18 +314,19 @@
     }
 
     .welcome-logo {
-      width: 68px;
-      height: 68px;
-      border-radius: 20px;
-      font-size: 28px;
+      width: 70px;
+      height: 70px;
+      border-radius: 18px;
+      object-fit: cover;
       margin-bottom: 22px;
-      box-shadow: 0 8px 30px rgba(0,0,0,.18);
+      box-shadow: 0 8px 35px rgba(0,0,0,.3);
     }
 
     .welcome h1 {
       font-size: 32px;
+      font-weight: 600;
       margin-bottom: 10px;
-      letter-spacing: -.5px;
+      letter-spacing: -.7px;
     }
 
     .welcome p {
@@ -289,9 +337,22 @@
     .message {
       display: flex;
       gap: 14px;
-      margin: 26px 0;
+      margin: 28px 0;
       line-height: 1.65;
       font-size: 15px;
+      animation: messageIn .15s ease;
+    }
+
+    @keyframes messageIn {
+      from {
+        opacity: 0;
+        transform: translateY(3px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
 
     .message-avatar {
@@ -303,11 +364,13 @@
       align-items: center;
       justify-content: center;
       font-size: 12px;
-      font-weight: bold;
+      font-weight: 700;
+      overflow: hidden;
     }
 
     .user-avatar {
       background: #555;
+      color: white;
     }
 
     .bot-avatar {
@@ -315,33 +378,87 @@
       color: #171717;
     }
 
+    .bot-avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
     .message-content {
       flex: 1;
-      padding-top: 4px;
+      padding-top: 3px;
       white-space: pre-wrap;
       word-break: break-word;
+      color: #ececec;
     }
+
+    .typing {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+      height: 25px;
+    }
+
+    .typing span {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #999;
+      animation: typing .9s infinite ease-in-out;
+    }
+
+    .typing span:nth-child(2) {
+      animation-delay: .15s;
+    }
+
+    .typing span:nth-child(3) {
+      animation-delay: .3s;
+    }
+
+    @keyframes typing {
+      0%, 60%, 100% {
+        opacity: .3;
+        transform: translateY(0);
+      }
+
+      30% {
+        opacity: 1;
+        transform: translateY(-3px);
+      }
+    }
+
+    /* =========================
+       INPUT
+    ========================= */
 
     .input-wrapper {
       position: fixed;
       bottom: 0;
-      left: 270px;
+      left: 260px;
       right: 0;
       padding: 20px 20px 18px;
-      background: linear-gradient(transparent, var(--bg) 32%);
+      background: linear-gradient(
+        transparent,
+        var(--bg) 28%
+      );
       z-index: 10;
     }
 
     .input-box {
       max-width: 850px;
       margin: 0 auto;
-      background: var(--panel);
+      background: #2f2f2f;
       border: 1px solid #454545;
       border-radius: 17px;
       display: flex;
       align-items: flex-end;
-      padding: 9px;
-      box-shadow: 0 8px 35px rgba(0,0,0,.25);
+      padding: 8px;
+      box-shadow: 0 8px 35px rgba(0,0,0,.28);
+      transition: border-color .15s ease;
+    }
+
+    .input-box:focus-within {
+      border-color: #555;
     }
 
     .attach-button {
@@ -352,8 +469,9 @@
       background: transparent;
       color: #aaa;
       cursor: pointer;
-      font-size: 20px;
+      font-size: 22px;
       flex-shrink: 0;
+      transition: background .15s ease, color .15s ease;
     }
 
     .attach-button:hover {
@@ -380,26 +498,45 @@
       color: #8e8e8e;
     }
 
+    /* CLEAN CHATGPT STYLE SEND BUTTON */
+
     .send-button {
       width: 38px;
       height: 38px;
       border: none;
-      border-radius: 10px;
-      background: white;
+      border-radius: 50%;
+      background: #fff;
       color: #171717;
       cursor: pointer;
-      font-size: 18px;
-      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       flex-shrink: 0;
+      transition: transform .12s ease, opacity .12s ease;
+    }
+
+    .send-button svg {
+      width: 19px;
+      height: 19px;
+      stroke: currentColor;
+      stroke-width: 2.2;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
     }
 
     .send-button:hover {
-      opacity: .85;
+      transform: scale(1.04);
+    }
+
+    .send-button:active {
+      transform: scale(.96);
     }
 
     .send-button:disabled {
       opacity: .35;
       cursor: default;
+      transform: none;
     }
 
     .disclaimer {
@@ -425,13 +562,16 @@
       font-size: 12px;
     }
 
-    /* AUTH MODAL */
+    /* =========================
+       AUTH MODAL
+    ========================= */
 
     .auth-overlay {
       display: none;
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,.68);
+      background: rgba(0,0,0,.72);
+      backdrop-filter: blur(4px);
       z-index: 100;
       align-items: center;
       justify-content: center;
@@ -447,9 +587,9 @@
       max-width: 390px;
       background: #202020;
       border: 1px solid #3c3c3c;
-      border-radius: 16px;
+      border-radius: 17px;
       padding: 25px;
-      box-shadow: 0 20px 60px rgba(0,0,0,.45);
+      box-shadow: 0 20px 70px rgba(0,0,0,.55);
       position: relative;
     }
 
@@ -540,24 +680,21 @@
 
     .logout-button {
       display: none;
-      border: 1px solid #3a3a3a;
-      background: transparent;
-      color: #ddd;
-      padding: 7px 11px;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 12px;
     }
 
-    .logout-button:hover {
-      background: var(--hover);
+    .overlay {
+      display: none;
     }
+
+    /* =========================
+       MOBILE
+    ========================= */
 
     @media (max-width: 700px) {
 
       .sidebar {
         position: fixed;
-        left: -270px;
+        left: -260px;
         top: 0;
         bottom: 0;
         transition: left .25s ease;
@@ -604,6 +741,16 @@
       .model-badge {
         display: none;
       }
+
+      .message {
+        gap: 10px;
+        margin: 23px 0;
+      }
+
+      .message-avatar {
+        width: 32px;
+        height: 32px;
+      }
     }
   </style>
 </head>
@@ -612,22 +759,38 @@
 
   <div class="app">
 
-    <div class="overlay" id="overlay" onclick="toggleSidebar()"></div>
+    <div
+      class="overlay"
+      id="overlay"
+      onclick="toggleSidebar()"
+    ></div>
 
     <!-- AUTH MODAL -->
+
     <div class="auth-overlay" id="authOverlay">
 
       <div class="auth-box">
 
-        <button class="auth-close" onclick="closeAuth()">×</button>
+        <button
+          class="auth-close"
+          onclick="closeAuth()"
+        >
+          ×
+        </button>
 
         <h2 id="authTitle">Log in</h2>
 
-        <div class="auth-subtitle" id="authSubtitle">
+        <div
+          class="auth-subtitle"
+          id="authSubtitle"
+        >
           Log in to your Chatabot account.
         </div>
 
-        <div class="auth-message" id="authMessage"></div>
+        <div
+          class="auth-message"
+          id="authMessage"
+        ></div>
 
         <input
           class="auth-input"
@@ -662,11 +825,18 @@
         </button>
 
         <div class="auth-switch">
-          <span id="authSwitchText">Don't have an account?</span>
 
-          <button onclick="switchAuthMode()" id="authSwitchButton">
+          <span id="authSwitchText">
+            Don't have an account?
+          </span>
+
+          <button
+            onclick="switchAuthMode()"
+            id="authSwitchButton"
+          >
             Sign up
           </button>
+
         </div>
 
       </div>
@@ -674,39 +844,84 @@
     </div>
 
     <!-- SIDEBAR -->
-    <aside class="sidebar" id="sidebar">
+
+    <aside
+      class="sidebar"
+      id="sidebar"
+    >
 
       <div class="brand">
-        <div class="brand-icon">C</div>
+
+        <img
+          class="brand-icon"
+          src="https://i.ibb.co/C36d4GVm/Chat-GPT-Image-Sep-16-2026-08-48-19-PM.png"
+          alt="Chatabot"
+        >
+
         <span>Chatabot</span>
+
       </div>
 
-      <button class="new-chat" onclick="newChat()">
+      <button
+        class="new-chat"
+        onclick="newChat()"
+      >
         ＋ New chat
       </button>
 
-      <div class="history-title">Recent chats</div>
+      <div class="history-title">
+        Recent chats
+      </div>
 
-      <div class="history" id="history">
-        <div class="empty-history">No chats yet</div>
+      <div
+        class="history"
+        id="history"
+      >
+        <div class="empty-history">
+          No chats yet
+        </div>
       </div>
 
       <div class="profile">
 
-        <div class="avatar" id="profileAvatar">U</div>
-
-        <div class="profile-info">
-          <div class="profile-name" id="profileName">Guest</div>
-          <div class="profile-plan" id="profilePlan">Free plan</div>
+        <div
+          class="avatar"
+          id="profileAvatar"
+        >
+          U
         </div>
 
-        <button class="profile-button" onclick="profileAction()">⋯</button>
+        <div class="profile-info">
+
+          <div
+            class="profile-name"
+            id="profileName"
+          >
+            Guest
+          </div>
+
+          <div
+            class="profile-plan"
+            id="profilePlan"
+          >
+            Free plan
+          </div>
+
+        </div>
+
+        <button
+          class="profile-button"
+          onclick="profileAction()"
+        >
+          ⋯
+        </button>
 
       </div>
 
     </aside>
 
     <!-- MAIN -->
+
     <main class="main">
 
       <header class="topbar">
@@ -720,9 +935,13 @@
             ☰
           </button>
 
-          <div class="model-name">Chatabot</div>
+          <div class="model-name">
+            Chatabot
+          </div>
 
-          <div class="model-badge">AI</div>
+          <div class="model-badge">
+            AI
+          </div>
 
         </div>
 
@@ -756,17 +975,34 @@
 
       </header>
 
-      <section class="chat-area" id="chatArea">
+      <section
+        class="chat-area"
+        id="chatArea"
+      >
 
-        <div class="messages" id="messages">
+        <div
+          class="messages"
+          id="messages"
+        >
 
-          <div class="welcome" id="welcome">
+          <div
+            class="welcome"
+            id="welcome"
+          >
 
-            <div class="welcome-logo">C</div>
+            <img
+              class="welcome-logo"
+              src="https://i.ibb.co/C36d4GVm/Chat-GPT-Image-Sep-16-2026-08-48-19-PM.png"
+              alt="Chatabot"
+            >
 
-            <h1>How can I help you?</h1>
+            <h1>
+              How can I help you?
+            </h1>
 
-            <p>Ask Chatabot anything.</p>
+            <p>
+              Ask Chatabot anything.
+            </p>
 
           </div>
 
@@ -775,9 +1011,13 @@
       </section>
 
       <!-- INPUT -->
+
       <div class="input-wrapper">
 
-        <div class="upload-preview" id="uploadPreview"></div>
+        <div
+          class="upload-preview"
+          id="uploadPreview"
+        ></div>
 
         <div class="input-box">
 
@@ -808,8 +1048,15 @@
             class="send-button"
             id="sendButton"
             onclick="sendMessage()"
+            title="Send"
           >
-            ↑
+            <svg
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path d="M5 12h13"></path>
+              <path d="M13 6l6 6-6 6"></path>
+            </svg>
           </button>
 
         </div>
@@ -825,6 +1072,7 @@
   </div>
 
   <!-- SUPABASE -->
+
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <script>
@@ -847,33 +1095,82 @@
 
 
     /* =========================
+       AI BACKEND
+    ========================= */
+
+    const AI_API_URL =
+      "/api/chat";
+
+
+    /* =========================
        ELEMENTS
     ========================= */
 
-    const input = document.getElementById("userInput");
-    const messages = document.getElementById("messages");
-    const history = document.getElementById("history");
-    const chatArea = document.getElementById("chatArea");
-    const uploadPreview = document.getElementById("uploadPreview");
+    const input =
+      document.getElementById("userInput");
 
-    const authOverlay = document.getElementById("authOverlay");
-    const authTitle = document.getElementById("authTitle");
-    const authSubtitle = document.getElementById("authSubtitle");
-    const authName = document.getElementById("authName");
-    const authEmail = document.getElementById("authEmail");
-    const authPassword = document.getElementById("authPassword");
-    const authSubmit = document.getElementById("authSubmit");
-    const authMessage = document.getElementById("authMessage");
-    const authSwitchText = document.getElementById("authSwitchText");
-    const authSwitchButton = document.getElementById("authSwitchButton");
+    const messages =
+      document.getElementById("messages");
 
-    const profileName = document.getElementById("profileName");
-    const profilePlan = document.getElementById("profilePlan");
-    const profileAvatar = document.getElementById("profileAvatar");
+    const history =
+      document.getElementById("history");
 
-    const loginButton = document.getElementById("loginButton");
-    const signupButton = document.getElementById("signupButton");
-    const logoutButton = document.getElementById("logoutButton");
+    const chatArea =
+      document.getElementById("chatArea");
+
+    const uploadPreview =
+      document.getElementById("uploadPreview");
+
+    const sendButton =
+      document.getElementById("sendButton");
+
+    const authOverlay =
+      document.getElementById("authOverlay");
+
+    const authTitle =
+      document.getElementById("authTitle");
+
+    const authSubtitle =
+      document.getElementById("authSubtitle");
+
+    const authName =
+      document.getElementById("authName");
+
+    const authEmail =
+      document.getElementById("authEmail");
+
+    const authPassword =
+      document.getElementById("authPassword");
+
+    const authSubmit =
+      document.getElementById("authSubmit");
+
+    const authMessage =
+      document.getElementById("authMessage");
+
+    const authSwitchText =
+      document.getElementById("authSwitchText");
+
+    const authSwitchButton =
+      document.getElementById("authSwitchButton");
+
+    const profileName =
+      document.getElementById("profileName");
+
+    const profilePlan =
+      document.getElementById("profilePlan");
+
+    const profileAvatar =
+      document.getElementById("profileAvatar");
+
+    const loginButton =
+      document.getElementById("loginButton");
+
+    const signupButton =
+      document.getElementById("signupButton");
+
+    const logoutButton =
+      document.getElementById("logoutButton");
 
 
     /* =========================
@@ -881,12 +1178,17 @@
     ========================= */
 
     let currentChat = [];
+
     let chats =
       JSON.parse(
-        localStorage.getItem("chatabot_history") || "[]"
+        localStorage.getItem(
+          "chatabot_history"
+        ) || "[]"
       );
 
     let selectedChat = null;
+
+    let aiBusy = false;
 
 
     /* =========================
@@ -894,10 +1196,12 @@
     ========================= */
 
     let authMode = "login";
+
     let currentUser = null;
 
 
     renderHistory();
+
     checkAuth();
 
 
@@ -911,11 +1215,16 @@
         data: {
           session
         }
-      } = await supabaseClient.auth.getSession();
+      } =
+        await supabaseClient.auth.getSession();
 
-      if (session && session.user) {
+      if (
+        session &&
+        session.user
+      ) {
 
-        currentUser = session.user;
+        currentUser =
+          session.user;
 
         await loadUserProfile();
 
@@ -937,9 +1246,13 @@
     supabaseClient.auth.onAuthStateChange(
       async (event, session) => {
 
-        if (session && session.user) {
+        if (
+          session &&
+          session.user
+        ) {
 
-          currentUser = session.user;
+          currentUser =
+            session.user;
 
           await loadUserProfile();
 
@@ -966,11 +1279,15 @@
       const {
         data,
         error
-      } = await supabaseClient
-        .from("profiles")
-        .select("*")
-        .eq("user_id", currentUser.id)
-        .maybeSingle();
+      } =
+        await supabaseClient
+          .from("profiles")
+          .select("*")
+          .eq(
+            "user_id",
+            currentUser.id
+          )
+          .maybeSingle();
 
       if (error) {
 
@@ -987,6 +1304,7 @@
         );
 
         return;
+
       }
 
       if (data) {
@@ -1022,14 +1340,15 @@
 
       const {
         error
-      } = await supabaseClient
-        .from("profiles")
-        .insert({
-          user_id: currentUser.id,
-          email: currentUser.email,
-          full_name: fullName,
-          plan: "free"
-        });
+      } =
+        await supabaseClient
+          .from("profiles")
+          .insert({
+            user_id: currentUser.id,
+            email: currentUser.email,
+            full_name: fullName,
+            plan: "free"
+          });
 
       if (error) {
 
@@ -1044,6 +1363,7 @@
         );
 
         return;
+
       }
 
       updateUserUI(
@@ -1058,9 +1378,13 @@
        UPDATE USER UI
     ========================= */
 
-    function updateUserUI(name, plan) {
+    function updateUserUI(
+      name,
+      plan
+    ) {
 
-      profileName.textContent = name;
+      profileName.textContent =
+        name;
 
       profilePlan.textContent =
         plan === "free"
@@ -1068,11 +1392,18 @@
           : plan;
 
       profileAvatar.textContent =
-        name.charAt(0).toUpperCase();
+        name
+          .charAt(0)
+          .toUpperCase();
 
-      loginButton.style.display = "none";
-      signupButton.style.display = "none";
-      logoutButton.style.display = "block";
+      loginButton.style.display =
+        "none";
+
+      signupButton.style.display =
+        "none";
+
+      logoutButton.style.display =
+        "block";
 
     }
 
@@ -1083,33 +1414,46 @@
 
     function updateGuestUI() {
 
-      profileName.textContent = "Guest";
-      profilePlan.textContent = "Free plan";
-      profileAvatar.textContent = "U";
+      profileName.textContent =
+        "Guest";
 
-      loginButton.style.display = "block";
-      signupButton.style.display = "block";
-      logoutButton.style.display = "none";
+      profilePlan.textContent =
+        "Free plan";
+
+      profileAvatar.textContent =
+        "U";
+
+      loginButton.style.display =
+        "block";
+
+      signupButton.style.display =
+        "block";
+
+      logoutButton.style.display =
+        "none";
 
     }
 
 
     /* =========================
-       OPEN LOGIN
+       LOGIN
     ========================= */
 
     function loginPrompt() {
 
       authMode = "login";
 
-      authTitle.textContent = "Log in";
+      authTitle.textContent =
+        "Log in";
 
       authSubtitle.textContent =
         "Log in to your Chatabot account.";
 
-      authName.style.display = "none";
+      authName.style.display =
+        "none";
 
-      authSubmit.textContent = "Log in";
+      authSubmit.textContent =
+        "Log in";
 
       authSwitchText.textContent =
         "Don't have an account?";
@@ -1120,29 +1464,35 @@
       clearAuthMessage();
 
       authEmail.value = "";
+
       authPassword.value = "";
 
-      authOverlay.classList.add("show");
+      authOverlay.classList.add(
+        "show"
+      );
 
     }
 
 
     /* =========================
-       OPEN SIGNUP
+       SIGNUP
     ========================= */
 
     function signupPrompt() {
 
       authMode = "signup";
 
-      authTitle.textContent = "Create account";
+      authTitle.textContent =
+        "Create account";
 
       authSubtitle.textContent =
         "Create your free Chatabot account.";
 
-      authName.style.display = "block";
+      authName.style.display =
+        "block";
 
-      authSubmit.textContent = "Sign up";
+      authSubmit.textContent =
+        "Sign up";
 
       authSwitchText.textContent =
         "Already have an account?";
@@ -1153,21 +1503,27 @@
       clearAuthMessage();
 
       authName.value = "";
+
       authEmail.value = "";
+
       authPassword.value = "";
 
-      authOverlay.classList.add("show");
+      authOverlay.classList.add(
+        "show"
+      );
 
     }
 
 
     /* =========================
-       SWITCH AUTH MODE
+       SWITCH AUTH
     ========================= */
 
     function switchAuthMode() {
 
-      if (authMode === "login") {
+      if (
+        authMode === "login"
+      ) {
 
         signupPrompt();
 
@@ -1186,7 +1542,9 @@
 
     function closeAuth() {
 
-      authOverlay.classList.remove("show");
+      authOverlay.classList.remove(
+        "show"
+      );
 
       clearAuthMessage();
 
@@ -1197,20 +1555,28 @@
        AUTH MESSAGE
     ========================= */
 
-    function showAuthMessage(message) {
+    function showAuthMessage(
+      message
+    ) {
 
-      authMessage.textContent = message;
+      authMessage.textContent =
+        message;
 
-      authMessage.classList.add("show");
+      authMessage.classList.add(
+        "show"
+      );
 
     }
 
 
     function clearAuthMessage() {
 
-      authMessage.textContent = "";
+      authMessage.textContent =
+        "";
 
-      authMessage.classList.remove("show");
+      authMessage.classList.remove(
+        "show"
+      );
 
     }
 
@@ -1229,7 +1595,10 @@
       const password =
         authPassword.value;
 
-      if (!email || !password) {
+      if (
+        !email ||
+        !password
+      ) {
 
         showAuthMessage(
           "Please enter your email and password."
@@ -1239,7 +1608,9 @@
 
       }
 
-      if (authMode === "signup") {
+      if (
+        authMode === "signup"
+      ) {
 
         const fullName =
           authName.value.trim();
@@ -1254,7 +1625,9 @@
 
         }
 
-        if (password.length < 6) {
+        if (
+          password.length < 6
+        ) {
 
           showAuthMessage(
             "Password must be at least 6 characters."
@@ -1264,38 +1637,51 @@
 
         }
 
-        authSubmit.disabled = true;
-        authSubmit.textContent = "Creating...";
+        authSubmit.disabled =
+          true;
+
+        authSubmit.textContent =
+          "Creating...";
 
         const {
           data,
           error
-        } = await supabaseClient.auth.signUp({
+        } =
+          await supabaseClient.auth.signUp({
 
-          email: email,
+            email: email,
 
-          password: password,
+            password: password,
 
-          options: {
-            data: {
-              full_name: fullName
+            options: {
+              data: {
+                full_name:
+                  fullName
+              }
             }
-          }
 
-        });
+          });
 
-        authSubmit.disabled = false;
-        authSubmit.textContent = "Sign up";
+        authSubmit.disabled =
+          false;
+
+        authSubmit.textContent =
+          "Sign up";
 
         if (error) {
 
-          showAuthMessage(error.message);
+          showAuthMessage(
+            error.message
+          );
 
           return;
 
         }
 
-        if (data.user && !data.session) {
+        if (
+          data.user &&
+          !data.session
+        ) {
 
           showAuthMessage(
             "Account created. Please check your email to confirm your account."
@@ -1307,7 +1693,8 @@
 
         if (data.session) {
 
-          currentUser = data.user;
+          currentUser =
+            data.user;
 
           await createUserProfile();
 
@@ -1322,26 +1709,35 @@
 
       /* LOGIN */
 
-      authSubmit.disabled = true;
-      authSubmit.textContent = "Logging in...";
+      authSubmit.disabled =
+        true;
+
+      authSubmit.textContent =
+        "Logging in...";
 
       const {
         data,
         error
-      } = await supabaseClient.auth.signInWithPassword({
+      } =
+        await supabaseClient.auth.signInWithPassword({
 
-        email: email,
+          email: email,
 
-        password: password
+          password: password
 
-      });
+        });
 
-      authSubmit.disabled = false;
-      authSubmit.textContent = "Log in";
+      authSubmit.disabled =
+        false;
+
+      authSubmit.textContent =
+        "Log in";
 
       if (error) {
 
-        showAuthMessage(error.message);
+        showAuthMessage(
+          error.message
+        );
 
         return;
 
@@ -1349,7 +1745,8 @@
 
       if (data.user) {
 
-        currentUser = data.user;
+        currentUser =
+          data.user;
 
         await loadUserProfile();
 
@@ -1368,7 +1765,8 @@
 
       const {
         error
-      } = await supabaseClient.auth.signOut();
+      } =
+        await supabaseClient.auth.signOut();
 
       if (error) {
 
@@ -1405,10 +1803,12 @@
 
 
     /* =========================
-       SEND MESSAGE
+       SEND MESSAGE + REAL AI
     ========================= */
 
-    function sendMessage() {
+    async function sendMessage() {
+
+      if (aiBusy) return;
 
       const text =
         input.value.trim();
@@ -1433,26 +1833,111 @@
 
       saveCurrentChat();
 
-      setTimeout(() => {
+      aiBusy = true;
+
+      sendButton.disabled =
+        true;
+
+      const typingMessage =
+        addTypingMessage();
+
+      try {
+
+        const response =
+          await fetch(
+            AI_API_URL,
+            {
+              method: "POST",
+
+              headers: {
+                "Content-Type":
+                  "application/json"
+              },
+
+              body: JSON.stringify({
+                messages:
+                  currentChat.map(
+                    message => ({
+                      role:
+                        message.role ===
+                        "bot"
+                          ? "assistant"
+                          : message.role,
+                      content:
+                        message.content
+                    })
+                  )
+              })
+            }
+          );
+
+        let data = null;
+
+        try {
+          data =
+            await response.json();
+        } catch (e) {
+          data = null;
+        }
+
+        if (!response.ok) {
+
+          throw new Error(
+            data?.details ||
+            data?.error ||
+            "AI request failed."
+          );
+
+        }
 
         const reply =
-          "Hello! I'm Chatabot. 🤖\n\n" +
-          "Your message was received successfully.\n\n" +
-          "The AI backend will be connected in the next step.";
+          data?.response ||
+          data?.result?.response ||
+          data?.text ||
+          data?.result ||
+          "Sorry, I couldn't generate a response.";
+
+        typingMessage.remove();
 
         addMessage(
-          reply,
+          String(reply),
           "bot"
         );
 
         currentChat.push({
           role: "bot",
-          content: reply
+          content: String(reply)
         });
 
         saveCurrentChat();
 
-      }, 500);
+      } catch (error) {
+
+        console.error(
+          "AI error:",
+          error
+        );
+
+        typingMessage.remove();
+
+        const errorReply =
+          "Sorry, I couldn't connect to the AI right now. Please try again.";
+
+        addMessage(
+          errorReply,
+          "bot"
+        );
+
+      } finally {
+
+        aiBusy = false;
+
+        sendButton.disabled =
+          false;
+
+        input.focus();
+
+      }
 
     }
 
@@ -1461,30 +1946,62 @@
        ADD MESSAGE
     ========================= */
 
-    function addMessage(text, type) {
+    function addMessage(
+      text,
+      type
+    ) {
 
       const message =
-        document.createElement("div");
+        document.createElement(
+          "div"
+        );
 
       message.className =
         "message";
 
       const avatar =
-        document.createElement("div");
+        document.createElement(
+          "div"
+        );
 
       avatar.className =
         "message-avatar " +
-        (type === "user"
-          ? "user-avatar"
-          : "bot-avatar");
+        (
+          type === "user"
+            ? "user-avatar"
+            : "bot-avatar"
+        );
 
-      avatar.textContent =
+      if (
         type === "user"
-          ? "U"
-          : "C";
+      ) {
+
+        avatar.textContent =
+          "U";
+
+      } else {
+
+        const img =
+          document.createElement(
+            "img"
+          );
+
+        img.src =
+          "https://i.ibb.co/C36d4GVm/Chat-GPT-Image-Sep-16-2026-08-48-19-PM.png";
+
+        img.alt =
+          "Chatabot";
+
+        avatar.appendChild(
+          img
+        );
+
+      }
 
       const content =
-        document.createElement("div");
+        document.createElement(
+          "div"
+        );
 
       content.className =
         "message-content";
@@ -1507,6 +2024,81 @@
       chatArea.scrollTop =
         chatArea.scrollHeight;
 
+      return message;
+
+    }
+
+
+    /* =========================
+       TYPING
+    ========================= */
+
+    function addTypingMessage() {
+
+      const message =
+        document.createElement(
+          "div"
+        );
+
+      message.className =
+        "message";
+
+      const avatar =
+        document.createElement(
+          "div"
+        );
+
+      avatar.className =
+        "message-avatar bot-avatar";
+
+      const img =
+        document.createElement(
+          "img"
+        );
+
+      img.src =
+        "https://i.ibb.co/C36d4GVm/Chat-GPT-Image-Sep-16-2026-08-48-19-PM.png";
+
+      img.alt =
+        "Chatabot";
+
+      avatar.appendChild(
+        img
+      );
+
+      const content =
+        document.createElement(
+          "div"
+        );
+
+      content.className =
+        "message-content";
+
+      content.innerHTML = `
+        <div class="typing">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+      `;
+
+      message.appendChild(
+        avatar
+      );
+
+      message.appendChild(
+        content
+      );
+
+      messages.appendChild(
+        message
+      );
+
+      chatArea.scrollTop =
+        chatArea.scrollHeight;
+
+      return message;
+
     }
 
 
@@ -1516,7 +2108,9 @@
 
     function newChat() {
 
-      if (currentChat.length > 0) {
+      if (
+        currentChat.length > 0
+      ) {
 
         saveCurrentChat();
 
@@ -1555,11 +2149,14 @@
 
     function saveCurrentChat() {
 
-      if (!currentChat.length) return;
+      if (
+        !currentChat.length
+      ) return;
 
       const firstUserMessage =
         currentChat.find(
-          m => m.role === "user"
+          m =>
+            m.role === "user"
         );
 
       const title =
@@ -1570,18 +2167,22 @@
             )
           : "New chat";
 
-      if (selectedChat !== null) {
+      if (
+        selectedChat !== null
+      ) {
 
         chats[selectedChat] = {
           title: title,
-          messages: currentChat
+          messages:
+            currentChat
         };
 
       } else {
 
         chats.unshift({
           title: title,
-          messages: currentChat
+          messages:
+            currentChat
         });
 
         selectedChat = 0;
@@ -1604,7 +2205,8 @@
 
     function renderHistory() {
 
-      history.innerHTML = "";
+      history.innerHTML =
+        "";
 
       if (!chats.length) {
 
@@ -1636,7 +2238,8 @@
             "New chat";
 
           item.onclick =
-            () => loadChat(index);
+            () =>
+              loadChat(index);
 
           history.appendChild(
             item
@@ -1700,9 +2303,7 @@
         );
 
       if (welcome) {
-
         welcome.remove();
-
       }
 
     }
@@ -1725,7 +2326,11 @@
         "welcome";
 
       welcome.innerHTML = `
-        <div class="welcome-logo">C</div>
+        <img
+          class="welcome-logo"
+          src="https://i.ibb.co/C36d4GVm/Chat-GPT-Image-Sep-16-2026-08-48-19-PM.png"
+          alt="Chatabot"
+        >
         <h1>How can I help you?</h1>
         <p>Ask Chatabot anything.</p>
       `;
@@ -1741,7 +2346,9 @@
        ENTER TO SEND
     ========================= */
 
-    function handleKey(event) {
+    function handleKey(
+      event
+    ) {
 
       if (
         event.key === "Enter" &&
@@ -1779,7 +2386,9 @@
        IMAGE UPLOAD UI
     ========================= */
 
-    function handleImageUpload(event) {
+    function handleImageUpload(
+      event
+    ) {
 
       const file =
         event.target.files[0];
@@ -1804,12 +2413,20 @@
     function toggleSidebar() {
 
       document
-        .getElementById("sidebar")
-        .classList.toggle("open");
+        .getElementById(
+          "sidebar"
+        )
+        .classList.toggle(
+          "open"
+        );
 
       document
-        .getElementById("overlay")
-        .classList.toggle("show");
+        .getElementById(
+          "overlay"
+        )
+        .classList.toggle(
+          "show"
+        );
 
     }
 
@@ -1817,12 +2434,20 @@
     function closeMobileSidebar() {
 
       document
-        .getElementById("sidebar")
-        .classList.remove("open");
+        .getElementById(
+          "sidebar"
+        )
+        .classList.remove(
+          "open"
+        );
 
       document
-        .getElementById("overlay")
-        .classList.remove("show");
+        .getElementById(
+          "overlay"
+        )
+        .classList.remove(
+          "show"
+        );
 
     }
 
