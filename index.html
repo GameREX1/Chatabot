@@ -354,7 +354,6 @@
       animation: messageIn .15s ease;
     }
 
-    /* USER = RIGHT */
     .message.user {
       justify-content: flex-end;
     }
@@ -374,7 +373,6 @@
       order: 2;
     }
 
-    /* BOT = LEFT */
     .message.bot {
       justify-content: flex-start;
     }
@@ -437,6 +435,22 @@
     .message-content {
       white-space: pre-wrap;
       word-break: break-word;
+    }
+
+    .generated-image {
+      display: block;
+      width: min(100%, 700px);
+      max-width: 100%;
+      border-radius: 14px;
+      border: 1px solid #292929;
+      margin-top: 4px;
+      box-shadow: 0 12px 45px rgba(0,0,0,.45);
+    }
+
+    .image-label {
+      color: #777;
+      font-size: 13px;
+      margin-bottom: 8px;
     }
 
     /* =========================
@@ -548,10 +562,6 @@
     textarea::placeholder {
       color: #777;
     }
-
-    /* =========================
-       SEND BUTTON
-    ========================= */
 
     .send-button {
       width: 42px;
@@ -1186,6 +1196,9 @@
     const AI_API_URL =
       "/api/chat";
 
+    const IMAGE_API_URL =
+      "/api/image";
+
 
     /* =========================
        ELEMENTS
@@ -1274,6 +1287,8 @@
     let selectedChat = null;
 
     let aiBusy = false;
+
+    let selectedImageFile = null;
 
 
     /* =========================
@@ -1888,7 +1903,40 @@
 
 
     /* =========================
-       SEND MESSAGE + REAL AI
+       IMAGE REQUEST DETECTION
+    ========================= */
+
+    function isImageRequest(text) {
+
+      const lower =
+        text.toLowerCase();
+
+      const imageWords = [
+        "generate image",
+        "generate an image",
+        "create image",
+        "create an image",
+        "make an image",
+        "make me an image",
+        "draw an image",
+        "generate a picture",
+        "create a picture",
+        "make a picture",
+        "draw",
+        "image of",
+        "picture of"
+      ];
+
+      return imageWords.some(
+        word =>
+          lower.includes(word)
+      );
+
+    }
+
+
+    /* =========================
+       SEND MESSAGE
     ========================= */
 
     async function sendMessage() {
@@ -1927,6 +1975,85 @@
         addTypingMessage();
 
       try {
+
+        /* IMAGE GENERATION */
+
+        if (
+          isImageRequest(text)
+        ) {
+
+          const prompt =
+            cleanImagePrompt(text);
+
+          const response =
+            await fetch(
+              IMAGE_API_URL,
+              {
+                method: "POST",
+
+                headers: {
+                  "Content-Type":
+                    "application/json"
+                },
+
+                body: JSON.stringify({
+                  prompt: prompt
+                })
+              }
+            );
+
+          let data = null;
+
+          try {
+
+            data =
+              await response.json();
+
+          } catch (e) {
+
+            data = null;
+
+          }
+
+          if (!response.ok) {
+
+            throw new Error(
+              data?.details ||
+              data?.error ||
+              "Image generation failed."
+            );
+
+          }
+
+          if (!data?.image) {
+
+            throw new Error(
+              "The AI did not return an image."
+            );
+
+          }
+
+          typingMessage.remove();
+
+          addImageMessage(
+            data.image,
+            prompt
+          );
+
+          currentChat.push({
+            role: "bot",
+            content: "[Generated image]\n" + prompt,
+            image: data.image
+          });
+
+          saveCurrentChat();
+
+          return;
+
+        }
+
+
+        /* NORMAL CHAT */
 
         const response =
           await fetch(
@@ -2032,7 +2159,46 @@
 
 
     /* =========================
-       ADD MESSAGE
+       IMAGE PROMPT CLEANER
+    ========================= */
+
+    function cleanImagePrompt(
+      text
+    ) {
+
+      let prompt =
+        text.trim();
+
+      const replacements = [
+        /^can you\s+/i,
+        /^could you\s+/i,
+        /^please\s+/i,
+        /^generate\s+(an?\s+)?image\s+(of\s+)?/i,
+        /^create\s+(an?\s+)?image\s+(of\s+)?/i,
+        /^make\s+(me\s+)?(an?\s+)?image\s+(of\s+)?/i,
+        /^draw\s+(an?\s+)?image\s+(of\s+)?/i
+      ];
+
+      replacements.forEach(
+        regex => {
+          prompt =
+            prompt.replace(
+              regex,
+              ""
+            );
+        }
+      );
+
+      return (
+        prompt.trim() ||
+        "A beautiful creative digital artwork"
+      );
+
+    }
+
+
+    /* =========================
+       ADD TEXT MESSAGE
     ========================= */
 
     function addMessage(
@@ -2105,6 +2271,110 @@
 
       content.textContent =
         text;
+
+      message.appendChild(
+        avatar
+      );
+
+      message.appendChild(
+        content
+      );
+
+      messages.appendChild(
+        message
+      );
+
+      chatArea.scrollTop =
+        chatArea.scrollHeight;
+
+      return message;
+
+    }
+
+
+    /* =========================
+       ADD IMAGE MESSAGE
+    ========================= */
+
+    function addImageMessage(
+      imageData,
+      prompt
+    ) {
+
+      const message =
+        document.createElement(
+          "div"
+        );
+
+      message.className =
+        "message bot";
+
+      const avatar =
+        document.createElement(
+          "div"
+        );
+
+      avatar.className =
+        "message-avatar bot-avatar";
+
+      const avatarImg =
+        document.createElement(
+          "img"
+        );
+
+      avatarImg.src =
+        "https://i.ibb.co/C36d4GVm/Chat-GPT-Image-Sep-16-2026-08-48-19-PM.png";
+
+      avatarImg.alt =
+        "Chatabot";
+
+      avatar.appendChild(
+        avatarImg
+      );
+
+      const content =
+        document.createElement(
+          "div"
+        );
+
+      content.className =
+        "message-content";
+
+      const label =
+        document.createElement(
+          "div"
+        );
+
+      label.className =
+        "image-label";
+
+      label.textContent =
+        "Generated image";
+
+      const image =
+        document.createElement(
+          "img"
+        );
+
+      image.className =
+        "generated-image";
+
+      image.src =
+        imageData.startsWith("data:")
+          ? imageData
+          : "data:image/jpeg;base64," +
+            imageData;
+
+      image.alt =
+        prompt || "Generated image";
+
+      content.appendChild(
+        label
+      );
+
+      content.appendChild(
+        image
+      );
 
       message.appendChild(
         avatar
@@ -2229,6 +2499,9 @@
       uploadPreview.textContent =
         "";
 
+      selectedImageFile =
+        null;
+
       document.getElementById(
         "fileInput"
       ).value = "";
@@ -2268,10 +2541,15 @@
         selectedChat !== null
       ) {
 
+        const oldChat =
+          chats[selectedChat] || {};
+
         chats[selectedChat] = {
           title: title,
           messages:
-            currentChat
+            currentChat,
+          pinned:
+            oldChat.pinned || false
         };
 
       } else {
@@ -2279,7 +2557,8 @@
         chats.unshift({
           title: title,
           messages:
-            currentChat
+            currentChat,
+          pinned: false
         });
 
         selectedChat = 0;
@@ -2371,12 +2650,29 @@
       currentChat.forEach(
         message => {
 
-          addMessage(
-            message.content,
-            message.role === "user"
-              ? "user"
-              : "bot"
-          );
+          if (
+            message.image
+          ) {
+
+            addImageMessage(
+              message.image,
+              message.content
+                ?.replace(
+                  "[Generated image]\n",
+                  ""
+                )
+            );
+
+          } else {
+
+            addMessage(
+              message.content,
+              message.role === "user"
+                ? "user"
+                : "bot"
+            );
+
+          }
 
         }
       );
@@ -2491,6 +2787,9 @@
         event.target.files[0];
 
       if (!file) return;
+
+      selectedImageFile =
+        file;
 
       uploadPreview.style.display =
         "block";
