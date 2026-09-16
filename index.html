@@ -106,7 +106,7 @@
       cursor: pointer;
       text-align: left;
       font-size: 15px;
-      margin-bottom: 23px;
+      margin-bottom: 12px;
       transition: background .15s ease, border-color .15s ease;
     }
 
@@ -115,13 +115,80 @@
       border-color: #353535;
     }
 
+    .plans-side-button {
+      width: 100%;
+      border: 1px solid #292929;
+      background: #080808;
+      color: #ddd;
+      padding: 11px 13px;
+      border-radius: 9px;
+      cursor: pointer;
+      text-align: left;
+      font-size: 14px;
+      margin-bottom: 16px;
+      transition: background .15s ease, border-color .15s ease;
+    }
+
+    .plans-side-button:hover {
+      background: #151515;
+      border-color: #3a3a3a;
+      color: white;
+    }
+
+    .history-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 6px 8px 10px;
+    }
+
     .history-title {
       font-size: 12px;
       color: #696969;
-      padding: 0 10px 9px;
       text-transform: uppercase;
       letter-spacing: .5px;
       font-weight: 600;
+    }
+
+    .chat-search-button {
+      border: 1px solid #292929;
+      background: #080808;
+      color: #888;
+      width: 30px;
+      height: 28px;
+      border-radius: 7px;
+      cursor: pointer;
+      font-size: 15px;
+      transition: .15s ease;
+    }
+
+    .chat-search-button:hover {
+      background: #171717;
+      color: white;
+    }
+
+    .chat-search-box {
+      display: none;
+      margin: 0 5px 9px;
+    }
+
+    .chat-search-box.show {
+      display: block;
+    }
+
+    .chat-search-input {
+      width: 100%;
+      border: 1px solid #292929;
+      background: #101010;
+      color: white;
+      outline: none;
+      padding: 9px 10px;
+      border-radius: 8px;
+      font-size: 13px;
+    }
+
+    .chat-search-input:focus {
+      border-color: #444;
     }
 
     .history {
@@ -141,8 +208,13 @@
       border-radius: 20px;
     }
 
+    .history-item-wrap {
+      position: relative;
+      margin-bottom: 2px;
+    }
+
     .history-item {
-      padding: 11px 12px;
+      padding: 11px 39px 11px 12px;
       border-radius: 8px;
       color: #d0d0d0;
       font-size: 15px;
@@ -150,12 +222,87 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      margin-bottom: 2px;
+      min-height: 40px;
     }
 
     .history-item:hover,
     .history-item.active {
       background: #151515;
+    }
+
+    .history-item.pinned {
+      color: #f2f2f2;
+    }
+
+    .pin-mark {
+      color: #999;
+      margin-right: 5px;
+      font-size: 11px;
+    }
+
+    .chat-menu-button {
+      position: absolute;
+      right: 5px;
+      top: 5px;
+      width: 31px;
+      height: 31px;
+      border: none;
+      background: transparent;
+      color: #777;
+      border-radius: 7px;
+      cursor: pointer;
+      font-size: 18px;
+      opacity: 0;
+      transition: .15s ease;
+    }
+
+    .history-item-wrap:hover .chat-menu-button,
+    .chat-menu-button.open {
+      opacity: 1;
+    }
+
+    .chat-menu-button:hover {
+      background: #222;
+      color: white;
+    }
+
+    .chat-menu {
+      display: none;
+      position: absolute;
+      right: 5px;
+      top: 38px;
+      width: 145px;
+      background: #101010;
+      border: 1px solid #303030;
+      border-radius: 9px;
+      padding: 5px;
+      z-index: 50;
+      box-shadow: 0 12px 35px rgba(0,0,0,.7);
+    }
+
+    .chat-menu.show {
+      display: block;
+    }
+
+    .chat-menu button {
+      width: 100%;
+      border: none;
+      background: transparent;
+      color: #ccc;
+      text-align: left;
+      padding: 9px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    .chat-menu button:hover {
+      background: #202020;
+      color: white;
+    }
+
+    .chat-menu button.delete-chat {
+      color: #ff9b9b;
     }
 
     .empty-history {
@@ -281,6 +428,10 @@
     .logout-button:hover {
       background: #151515;
       border-color: #3a3a3a;
+    }
+
+    .plans-top-button {
+      display: none;
     }
 
     .menu-button {
@@ -633,7 +784,8 @@
        AUTH MODAL
     ========================= */
 
-    .auth-overlay {
+    .auth-overlay,
+    .plans-overlay {
       display: none;
       position: fixed;
       inset: 0;
@@ -645,7 +797,8 @@
       padding: 20px;
     }
 
-    .auth-overlay.show {
+    .auth-overlay.show,
+    .plans-overlay.show {
       display: flex;
     }
 
@@ -660,7 +813,8 @@
       position: relative;
     }
 
-    .auth-close {
+    .auth-close,
+    .plans-close {
       position: absolute;
       top: 12px;
       right: 14px;
@@ -671,7 +825,8 @@
       cursor: pointer;
     }
 
-    .auth-close:hover {
+    .auth-close:hover,
+    .plans-close:hover {
       color: white;
     }
 
@@ -764,8 +919,138 @@
     }
 
     /* =========================
+       PLANS
+    ========================= */
+
+    .plans-box {
+      width: 100%;
+      max-width: 1050px;
+      max-height: 90vh;
+      overflow-y: auto;
+      background: #080808;
+      border: 1px solid #292929;
+      border-radius: 18px;
+      padding: 30px;
+      box-shadow: 0 25px 100px rgba(0,0,0,.9);
+      position: relative;
+    }
+
+    .plans-header {
+      text-align: center;
+      margin-bottom: 25px;
+    }
+
+    .plans-header h2 {
+      font-size: 30px;
+      margin-bottom: 7px;
+    }
+
+    .plans-header p {
+      color: #777;
+      font-size: 14px;
+    }
+
+    .plans-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 12px;
+    }
+
+    .plan-card {
+      border: 1px solid #292929;
+      background: #0d0d0d;
+      border-radius: 13px;
+      padding: 19px 15px;
+      display: flex;
+      flex-direction: column;
+      min-height: 350px;
+    }
+
+    .plan-card.current {
+      border-color: #555;
+    }
+
+    .plan-card h3 {
+      font-size: 19px;
+      margin-bottom: 9px;
+    }
+
+    .plan-price {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 3px;
+    }
+
+    .plan-price span {
+      font-size: 12px;
+      color: #777;
+      font-weight: 400;
+    }
+
+    .plan-annual {
+      color: #777;
+      font-size: 11px;
+      min-height: 30px;
+      margin-bottom: 15px;
+    }
+
+    .plan-features {
+      flex: 1;
+      color: #aaa;
+      font-size: 12px;
+      line-height: 1.7;
+      margin-bottom: 15px;
+    }
+
+    .plan-features div {
+      margin-bottom: 5px;
+    }
+
+    .plan-button {
+      width: 100%;
+      border: 1px solid #303030;
+      background: #151515;
+      color: #ddd;
+      border-radius: 8px;
+      padding: 10px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    .plan-button:hover {
+      background: #202020;
+      color: white;
+    }
+
+    .plan-button.active {
+      background: #f5f5f5;
+      color: #000;
+      border-color: #f5f5f5;
+    }
+
+    .plan-button.coming-soon {
+      color: #777;
+      cursor: default;
+      background: #101010;
+    }
+
+    .plan-note {
+      text-align: center;
+      color: #555;
+      font-size: 11px;
+      margin-top: 18px;
+    }
+
+    /* =========================
        MOBILE
     ========================= */
+
+    @media (max-width: 900px) {
+
+      .plans-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
 
     @media (max-width: 700px) {
 
@@ -799,6 +1084,10 @@
 
       .top-right .top-button {
         display: none;
+      }
+
+      .top-right .plans-top-button {
+        display: block;
       }
 
       .input-wrapper {
@@ -845,6 +1134,19 @@
 
       textarea {
         font-size: 16px;
+      }
+
+      .plans-box {
+        max-height: 94vh;
+        padding: 24px 15px;
+      }
+
+      .plans-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .plan-card {
+        min-height: auto;
       }
     }
   </style>
@@ -938,6 +1240,188 @@
 
     </div>
 
+    <!-- PLANS MODAL -->
+
+    <div
+      class="plans-overlay"
+      id="plansOverlay"
+      onclick="closePlans(event)"
+    >
+
+      <div
+        class="plans-box"
+        onclick="event.stopPropagation()"
+      >
+
+        <button
+          class="plans-close"
+          onclick="closePlans()"
+        >
+          ×
+        </button>
+
+        <div class="plans-header">
+          <h2>Choose your plan</h2>
+          <p>Upgrade your Chatabot experience when paid plans launch.</p>
+        </div>
+
+        <div class="plans-grid">
+
+          <div class="plan-card current">
+
+            <h3>Free</h3>
+
+            <div class="plan-price">
+              $0 <span>/ month</span>
+            </div>
+
+            <div class="plan-annual">
+              Free forever
+            </div>
+
+            <div class="plan-features">
+              <div>✓ 30 messages per chat</div>
+              <div>✓ 5 image creations/uploads per 24h</div>
+              <div>✓ AI chat</div>
+              <div>✓ Image generation</div>
+            </div>
+
+            <button
+              class="plan-button active"
+              onclick="closePlans()"
+            >
+              Current plan
+            </button>
+
+          </div>
+
+
+          <div class="plan-card">
+
+            <h3>Classic</h3>
+
+            <div class="plan-price">
+              $3.50 <span>/ month</span>
+            </div>
+
+            <div class="plan-annual">
+              $33.60 / year · 20% off
+            </div>
+
+            <div class="plan-features">
+              <div>✓ 50 messages per chat</div>
+              <div>✓ 10 image creations/uploads per 24h</div>
+              <div>✓ AI chat</div>
+              <div>✓ Image generation</div>
+              <div>✓ 1 week free after signup</div>
+            </div>
+
+            <button
+              class="plan-button coming-soon"
+              onclick="comingSoon()"
+            >
+              Coming Soon
+            </button>
+
+          </div>
+
+
+          <div class="plan-card">
+
+            <h3>Gold</h3>
+
+            <div class="plan-price">
+              $7 <span>/ month</span>
+            </div>
+
+            <div class="plan-annual">
+              $67.20 / year · 20% off
+            </div>
+
+            <div class="plan-features">
+              <div>✓ 100 messages per chat</div>
+              <div>✓ 30 image creations/uploads per 24h</div>
+              <div>✓ AI chat</div>
+              <div>✓ Image generation</div>
+            </div>
+
+            <button
+              class="plan-button coming-soon"
+              onclick="comingSoon()"
+            >
+              Coming Soon
+            </button>
+
+          </div>
+
+
+          <div class="plan-card">
+
+            <h3>Platinum</h3>
+
+            <div class="plan-price">
+              $13 <span>/ month</span>
+            </div>
+
+            <div class="plan-annual">
+              $124.80 / year · 20% off
+            </div>
+
+            <div class="plan-features">
+              <div>✓ Unlimited messages</div>
+              <div>✓ 50 image creations/uploads per 24h</div>
+              <div>✓ AI chat</div>
+              <div>✓ Image generation</div>
+            </div>
+
+            <button
+              class="plan-button coming-soon"
+              onclick="comingSoon()"
+            >
+              Coming Soon
+            </button>
+
+          </div>
+
+
+          <div class="plan-card">
+
+            <h3>Team</h3>
+
+            <div class="plan-price">
+              $30 <span>/ month</span>
+            </div>
+
+            <div class="plan-annual">
+              $360 / year
+            </div>
+
+            <div class="plan-features">
+              <div>✓ 2–50 people</div>
+              <div>✓ Unlimited messages in 1 chat</div>
+              <div>✓ 50 image creations/uploads per 24h</div>
+              <div>✓ Team usage</div>
+            </div>
+
+            <button
+              class="plan-button coming-soon"
+              onclick="comingSoon()"
+            >
+              Coming Soon
+            </button>
+
+          </div>
+
+        </div>
+
+        <div class="plan-note">
+          Paid plans and payments will be available soon.
+        </div>
+
+      </div>
+
+    </div>
+
     <!-- SIDEBAR -->
 
     <aside
@@ -964,8 +1448,42 @@
         ＋ New chat
       </button>
 
-      <div class="history-title">
-        Recent chats
+      <button
+        class="plans-side-button"
+        onclick="openPlans()"
+      >
+        ◇ Plans
+      </button>
+
+      <div class="history-title-row">
+
+        <div class="history-title">
+          Recent chats
+        </div>
+
+        <button
+          class="chat-search-button"
+          onclick="toggleChatSearch()"
+          title="Search chats"
+        >
+          ⌕
+        </button>
+
+      </div>
+
+      <div
+        class="chat-search-box"
+        id="chatSearchBox"
+      >
+
+        <input
+          class="chat-search-input"
+          id="chatSearchInput"
+          type="text"
+          placeholder="Search chats..."
+          oninput="searchChats()"
+        >
+
       </div>
 
       <div
@@ -1041,6 +1559,13 @@
         </div>
 
         <div class="top-right">
+
+          <button
+            class="top-button plans-top-button"
+            onclick="openPlans()"
+          >
+            Plans
+          </button>
 
           <button
             class="top-button"
@@ -1270,6 +1795,15 @@
     const logoutButton =
       document.getElementById("logoutButton");
 
+    const plansOverlay =
+      document.getElementById("plansOverlay");
+
+    const chatSearchBox =
+      document.getElementById("chatSearchBox");
+
+    const chatSearchInput =
+      document.getElementById("chatSearchInput");
+
 
     /* =========================
        CHAT DATA
@@ -1301,7 +1835,6 @@
 
 
     renderHistory();
-
     checkAuth();
 
 
@@ -1898,6 +2431,84 @@
         loginPrompt();
 
       }
+
+    }
+
+
+    /* =========================
+       PLANS
+    ========================= */
+
+    function openPlans() {
+
+      plansOverlay.classList.add(
+        "show"
+      );
+
+      closeMobileSidebar();
+
+    }
+
+
+    function closePlans(event) {
+
+      if (
+        event &&
+        event.target !== plansOverlay
+      ) {
+        return;
+      }
+
+      plansOverlay.classList.remove(
+        "show"
+      );
+
+    }
+
+
+    function comingSoon() {
+
+      alert(
+        "Paid plans are coming soon."
+      );
+
+    }
+
+
+    /* =========================
+       CHAT SEARCH
+    ========================= */
+
+    function toggleChatSearch() {
+
+      chatSearchBox.classList.toggle(
+        "show"
+      );
+
+      if (
+        chatSearchBox.classList.contains(
+          "show"
+        )
+      ) {
+
+        chatSearchInput.focus();
+
+      } else {
+
+        chatSearchInput.value = "";
+
+        renderHistory();
+
+      }
+
+    }
+
+
+    function searchChats() {
+
+      renderHistory(
+        chatSearchInput.value.trim().toLowerCase()
+      );
 
     }
 
@@ -2579,22 +3190,80 @@
        HISTORY
     ========================= */
 
-    function renderHistory() {
+    function renderHistory(
+      searchTerm = ""
+    ) {
 
       history.innerHTML =
         "";
 
-      if (!chats.length) {
+      let visibleChats =
+        chats
+          .map(
+            (chat, index) => ({
+              chat,
+              index
+            })
+          )
+          .filter(
+            item => {
+
+              if (!searchTerm)
+                return true;
+
+              return (
+                item.chat.title ||
+                ""
+              )
+                .toLowerCase()
+                .includes(
+                  searchTerm
+                );
+
+            }
+          );
+
+      visibleChats.sort(
+        (a, b) => {
+
+          if (
+            Boolean(b.chat.pinned) !==
+            Boolean(a.chat.pinned)
+          ) {
+
+            return b.chat.pinned
+              ? 1
+              : -1;
+
+          }
+
+          return a.index - b.index;
+
+        }
+      );
+
+      if (!visibleChats.length) {
 
         history.innerHTML =
-          '<div class="empty-history">No chats yet</div>';
+          '<div class="empty-history">No chats found</div>';
 
         return;
 
       }
 
-      chats.forEach(
-        (chat, index) => {
+      visibleChats.forEach(
+        ({
+          chat,
+          index
+        }) => {
+
+          const wrap =
+            document.createElement(
+              "div"
+            );
+
+          wrap.className =
+            "history-item-wrap";
 
           const item =
             document.createElement(
@@ -2607,22 +3276,459 @@
               index === selectedChat
                 ? "active"
                 : ""
+            ) +
+            (
+              chat.pinned
+                ? " pinned"
+                : ""
             );
 
-          item.textContent =
+          if (chat.pinned) {
+
+            const pin =
+              document.createElement(
+                "span"
+              );
+
+            pin.className =
+              "pin-mark";
+
+            pin.textContent =
+              "📌";
+
+            item.appendChild(
+              pin
+            );
+
+          }
+
+          const title =
+            document.createElement(
+              "span"
+            );
+
+          title.textContent =
             chat.title ||
             "New chat";
+
+          item.appendChild(
+            title
+          );
 
           item.onclick =
             () =>
               loadChat(index);
 
-          history.appendChild(
+          const menuButton =
+            document.createElement(
+              "button"
+            );
+
+          menuButton.className =
+            "chat-menu-button";
+
+          menuButton.textContent =
+            "⋮";
+
+          menuButton.title =
+            "Chat options";
+
+          const menu =
+            document.createElement(
+              "div"
+            );
+
+          menu.className =
+            "chat-menu";
+
+          menuButton.onclick =
+            event => {
+
+              event.stopPropagation();
+
+              document
+                .querySelectorAll(
+                  ".chat-menu.show"
+                )
+                .forEach(
+                  openMenu =>
+                    openMenu !== menu &&
+                    openMenu.classList.remove(
+                      "show"
+                    )
+                );
+
+              document
+                .querySelectorAll(
+                  ".chat-menu-button.open"
+                )
+                .forEach(
+                  openButton =>
+                    openButton !== menuButton &&
+                    openButton.classList.remove(
+                      "open"
+                    )
+                );
+
+              menu.classList.toggle(
+                "show"
+              );
+
+              menuButton.classList.toggle(
+                "open"
+              );
+
+            };
+
+          const renameButton =
+            document.createElement(
+              "button"
+            );
+
+          renameButton.textContent =
+            "Rename";
+
+          renameButton.onclick =
+            event => {
+
+              event.stopPropagation();
+
+              renameChat(index);
+
+              menu.classList.remove(
+                "show"
+              );
+
+              menuButton.classList.remove(
+                "open"
+              );
+
+            };
+
+          const pinButton =
+            document.createElement(
+              "button"
+            );
+
+          pinButton.textContent =
+            chat.pinned
+              ? "Unpin Chat"
+              : "Pin Chat";
+
+          pinButton.onclick =
+            event => {
+
+              event.stopPropagation();
+
+              togglePinChat(index);
+
+              menu.classList.remove(
+                "show"
+              );
+
+              menuButton.classList.remove(
+                "open"
+              );
+
+            };
+
+          const shareButton =
+            document.createElement(
+              "button"
+            );
+
+          shareButton.textContent =
+            "Share Chat";
+
+          shareButton.onclick =
+            event => {
+
+              event.stopPropagation();
+
+              shareChat(index);
+
+              menu.classList.remove(
+                "show"
+              );
+
+              menuButton.classList.remove(
+                "open"
+              );
+
+            };
+
+          const deleteButton =
+            document.createElement(
+              "button"
+            );
+
+          deleteButton.textContent =
+            "Delete";
+
+          deleteButton.className =
+            "delete-chat";
+
+          deleteButton.onclick =
+            event => {
+
+              event.stopPropagation();
+
+              deleteChat(index);
+
+              menu.classList.remove(
+                "show"
+              );
+
+              menuButton.classList.remove(
+                "open"
+              );
+
+            };
+
+          menu.appendChild(
+            renameButton
+          );
+
+          menu.appendChild(
+            pinButton
+          );
+
+          menu.appendChild(
+            shareButton
+          );
+
+          menu.appendChild(
+            deleteButton
+          );
+
+          wrap.appendChild(
             item
+          );
+
+          wrap.appendChild(
+            menuButton
+          );
+
+          wrap.appendChild(
+            menu
+          );
+
+          history.appendChild(
+            wrap
           );
 
         }
       );
+
+    }
+
+
+    /* =========================
+       RENAME CHAT
+    ========================= */
+
+    function renameChat(index) {
+
+      const chat =
+        chats[index];
+
+      if (!chat) return;
+
+      const newName =
+        prompt(
+          "Enter new chat name:",
+          chat.title || "New chat"
+        );
+
+      if (
+        newName === null
+      ) return;
+
+      const cleanName =
+        newName.trim();
+
+      if (!cleanName) return;
+
+      chat.title =
+        cleanName.substring(
+          0,
+          80
+        );
+
+      localStorage.setItem(
+        "chatabot_history",
+        JSON.stringify(chats)
+      );
+
+      renderHistory(
+        chatSearchInput.value
+          .trim()
+          .toLowerCase()
+      );
+
+    }
+
+
+    /* =========================
+       PIN CHAT
+    ========================= */
+
+    function togglePinChat(index) {
+
+      const chat =
+        chats[index];
+
+      if (!chat) return;
+
+      chat.pinned =
+        !chat.pinned;
+
+      localStorage.setItem(
+        "chatabot_history",
+        JSON.stringify(chats)
+      );
+
+      renderHistory(
+        chatSearchInput.value
+          .trim()
+          .toLowerCase()
+      );
+
+    }
+
+
+    /* =========================
+       DELETE CHAT
+    ========================= */
+
+    function deleteChat(index) {
+
+      const chat =
+        chats[index];
+
+      if (!chat) return;
+
+      const confirmed =
+        confirm(
+          "Delete this chat?"
+        );
+
+      if (!confirmed) return;
+
+      chats.splice(
+        index,
+        1
+      );
+
+      if (
+        selectedChat === index
+      ) {
+
+        currentChat = [];
+
+        selectedChat = null;
+
+        showWelcome();
+
+      } else if (
+        selectedChat !== null &&
+        index < selectedChat
+      ) {
+
+        selectedChat--;
+
+      }
+
+      localStorage.setItem(
+        "chatabot_history",
+        JSON.stringify(chats)
+      );
+
+      renderHistory();
+
+    }
+
+
+    /* =========================
+       SHARE CHAT
+    ========================= */
+
+    async function shareChat(index) {
+
+      const chat =
+        chats[index];
+
+      if (!chat) return;
+
+      const shareText =
+        "Chatabot chat: " +
+        (chat.title || "Chat") +
+        "\n\n" +
+        chat.messages
+          .map(
+            message =>
+              (
+                message.role === "user"
+                  ? "You: "
+                  : "Chatabot: "
+              ) +
+              (
+                message.image
+                  ? "[Generated image]"
+                  : message.content
+              )
+          )
+          .join("\n\n");
+
+      try {
+
+        if (
+          navigator.share
+        ) {
+
+          await navigator.share({
+            title:
+              chat.title ||
+              "Chatabot Chat",
+            text:
+              shareText
+          });
+
+        } else if (
+          navigator.clipboard
+        ) {
+
+          await navigator.clipboard.writeText(
+            shareText
+          );
+
+          alert(
+            "Chat copied to clipboard."
+          );
+
+        } else {
+
+          prompt(
+            "Copy this chat:",
+            shareText
+          );
+
+        }
+
+      } catch (error) {
+
+        if (
+          error?.name !==
+          "AbortError"
+        ) {
+
+          alert(
+            "Could not share this chat."
+          );
+
+        }
+
+      }
 
     }
 
@@ -2846,6 +3952,40 @@
         );
 
     }
+
+
+    /* =========================
+       CLOSE MENUS ON OUTSIDE CLICK
+    ========================= */
+
+    document.addEventListener(
+      "click",
+      () => {
+
+        document
+          .querySelectorAll(
+            ".chat-menu.show"
+          )
+          .forEach(
+            menu =>
+              menu.classList.remove(
+                "show"
+              )
+          );
+
+        document
+          .querySelectorAll(
+            ".chat-menu-button.open"
+          )
+          .forEach(
+            button =>
+              button.classList.remove(
+                "open"
+              )
+          );
+
+      }
+    );
 
   </script>
 
