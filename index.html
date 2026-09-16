@@ -96,7 +96,8 @@
       flex-shrink: 0;
     }
 
-    .new-chat {
+    .new-chat,
+    .plans-side-button {
       width: 100%;
       border: 1px solid #292929;
       background: #080808;
@@ -110,27 +111,20 @@
       transition: background .15s ease, border-color .15s ease;
     }
 
-    .new-chat:hover {
+    .plans-side-button {
+      color: #ddd;
+      padding: 11px 13px;
+      font-size: 14px;
+      margin-bottom: 16px;
+    }
+
+    .new-chat:hover,
+    .plans-side-button:hover {
       background: #151515;
       border-color: #353535;
     }
 
-    .plans-side-button {
-      width: 100%;
-      border: 1px solid #292929;
-      background: #080808;
-      color: #ddd;
-      padding: 11px 13px;
-      border-radius: 9px;
-      cursor: pointer;
-      text-align: left;
-      font-size: 14px;
-      margin-bottom: 16px;
-      transition: background .15s ease, border-color .15s ease;
-    }
-
     .plans-side-button:hover {
-      background: #151515;
       border-color: #3a3a3a;
       color: white;
     }
@@ -503,6 +497,7 @@
       line-height: 1.65;
       font-size: 17px;
       animation: messageIn .15s ease;
+      position: relative;
     }
 
     .message.user {
@@ -588,6 +583,92 @@
       word-break: break-word;
     }
 
+    .message-actions {
+      display: flex;
+      gap: 4px;
+      margin-top: 6px;
+      opacity: 0;
+      transition: opacity .15s ease;
+    }
+
+    .message:hover .message-actions {
+      opacity: 1;
+    }
+
+    .message.user .message-actions {
+      justify-content: flex-end;
+    }
+
+    .message-action-button {
+      border: 1px solid #292929;
+      background: #0b0b0b;
+      color: #888;
+      border-radius: 7px;
+      padding: 4px 8px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .message-action-button:hover {
+      color: white;
+      background: #1b1b1b;
+    }
+
+    .message-menu-wrap {
+      position: relative;
+      display: inline-flex;
+    }
+
+    .message-menu-button {
+      border: none;
+      background: transparent;
+      color: #777;
+      cursor: pointer;
+      font-size: 17px;
+      padding: 2px 5px;
+      border-radius: 6px;
+    }
+
+    .message-menu-button:hover {
+      color: white;
+      background: #1b1b1b;
+    }
+
+    .message-menu {
+      display: none;
+      position: absolute;
+      right: 0;
+      bottom: 30px;
+      width: 135px;
+      background: #101010;
+      border: 1px solid #303030;
+      border-radius: 9px;
+      padding: 5px;
+      z-index: 60;
+      box-shadow: 0 12px 35px rgba(0,0,0,.7);
+    }
+
+    .message-menu.show {
+      display: block;
+    }
+
+    .message-menu button {
+      width: 100%;
+      border: none;
+      background: transparent;
+      color: #ccc;
+      text-align: left;
+      padding: 8px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    .message-menu button:hover {
+      background: #202020;
+      color: white;
+    }
+
     .generated-image {
       display: block;
       width: min(100%, 700px);
@@ -602,6 +683,75 @@
       color: #777;
       font-size: 13px;
       margin-bottom: 8px;
+    }
+
+    .uploaded-image {
+      display: block;
+      width: min(100%, 420px);
+      max-width: 100%;
+      border-radius: 12px;
+      border: 1px solid #303030;
+      margin-bottom: 8px;
+    }
+
+    /* =========================
+       CODE BLOCKS
+    ========================= */
+
+    .code-block {
+      margin: 10px 0;
+      border: 1px solid #303030;
+      border-radius: 10px;
+      overflow: hidden;
+      background: #090909;
+      white-space: normal;
+    }
+
+    .code-header {
+      height: 35px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 9px 0 12px;
+      background: #151515;
+      border-bottom: 1px solid #292929;
+      color: #888;
+      font-size: 12px;
+    }
+
+    .copy-code-button {
+      border: 1px solid #303030;
+      background: #0c0c0c;
+      color: #aaa;
+      border-radius: 6px;
+      padding: 4px 8px;
+      cursor: pointer;
+      font-size: 11px;
+    }
+
+    .copy-code-button:hover {
+      color: white;
+      background: #202020;
+    }
+
+    .code-block pre {
+      margin: 0;
+      padding: 13px;
+      overflow-x: auto;
+      white-space: pre;
+      color: #e7e7e7;
+      font-family:
+        "SFMono-Regular",
+        Consolas,
+        "Liberation Mono",
+        Menlo,
+        monospace;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .plain-bot-text {
+      white-space: pre-wrap;
     }
 
     /* =========================
@@ -778,6 +928,41 @@
       padding: 9px 11px;
       color: #aaa;
       font-size: 13px;
+    }
+
+    /* =========================
+       SELECTION MENU
+    ========================= */
+
+    .selection-menu {
+      display: none;
+      position: fixed;
+      z-index: 500;
+      background: #151515;
+      border: 1px solid #363636;
+      border-radius: 8px;
+      padding: 4px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.7);
+    }
+
+    .selection-menu.show {
+      display: flex;
+      gap: 3px;
+    }
+
+    .selection-menu button {
+      border: none;
+      background: transparent;
+      color: #ddd;
+      padding: 7px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    .selection-menu button:hover {
+      background: #272727;
+      color: white;
     }
 
     /* =========================
@@ -1046,14 +1231,12 @@
     ========================= */
 
     @media (max-width: 900px) {
-
       .plans-grid {
         grid-template-columns: repeat(2, 1fr);
       }
     }
 
     @media (max-width: 700px) {
-
       .sidebar {
         position: fixed;
         left: -260px;
@@ -1148,6 +1331,10 @@
       .plan-card {
         min-height: auto;
       }
+
+      .message-actions {
+        opacity: 1;
+      }
     }
   </style>
 </head>
@@ -1162,32 +1349,33 @@
       onclick="toggleSidebar()"
     ></div>
 
+    <!-- SELECTION MENU -->
+
+    <div
+      class="selection-menu"
+      id="selectionMenu"
+    >
+      <button onclick="copySelectedText()">Copy</button>
+      <button onclick="askSelectedText()">Ask Chatabot</button>
+    </div>
+
     <!-- AUTH MODAL -->
 
     <div class="auth-overlay" id="authOverlay">
 
       <div class="auth-box">
 
-        <button
-          class="auth-close"
-          onclick="closeAuth()"
-        >
+        <button class="auth-close" onclick="closeAuth()">
           ×
         </button>
 
         <h2 id="authTitle">Log in</h2>
 
-        <div
-          class="auth-subtitle"
-          id="authSubtitle"
-        >
+        <div class="auth-subtitle" id="authSubtitle">
           Log in to your Chatabot account.
         </div>
 
-        <div
-          class="auth-message"
-          id="authMessage"
-        ></div>
+        <div class="auth-message" id="authMessage"></div>
 
         <input
           class="auth-input"
@@ -1222,7 +1410,6 @@
         </button>
 
         <div class="auth-switch">
-
           <span id="authSwitchText">
             Don't have an account?
           </span>
@@ -1233,7 +1420,6 @@
           >
             Sign up
           </button>
-
         </div>
 
       </div>
@@ -1268,7 +1454,6 @@
         <div class="plans-grid">
 
           <div class="plan-card current">
-
             <h3>Free</h3>
 
             <div class="plan-price">
@@ -1292,12 +1477,9 @@
             >
               Current plan
             </button>
-
           </div>
 
-
           <div class="plan-card">
-
             <h3>Classic</h3>
 
             <div class="plan-price">
@@ -1322,12 +1504,9 @@
             >
               Coming Soon
             </button>
-
           </div>
 
-
           <div class="plan-card">
-
             <h3>Gold</h3>
 
             <div class="plan-price">
@@ -1351,12 +1530,9 @@
             >
               Coming Soon
             </button>
-
           </div>
 
-
           <div class="plan-card">
-
             <h3>Platinum</h3>
 
             <div class="plan-price">
@@ -1380,12 +1556,9 @@
             >
               Coming Soon
             </button>
-
           </div>
 
-
           <div class="plan-card">
-
             <h3>Team</h3>
 
             <div class="plan-price">
@@ -1409,7 +1582,6 @@
             >
               Coming Soon
             </button>
-
           </div>
 
         </div>
@@ -1424,10 +1596,7 @@
 
     <!-- SIDEBAR -->
 
-    <aside
-      class="sidebar"
-      id="sidebar"
-    >
+    <aside class="sidebar" id="sidebar">
 
       <div class="brand">
 
@@ -1724,6 +1893,38 @@
     const IMAGE_API_URL =
       "/api/image";
 
+    const VISION_API_URL =
+      "/api/vision";
+
+
+    /* =========================
+       LIMITS
+    ========================= */
+
+    const GUEST_MESSAGE_LIMIT = 5;
+
+    const FREE_MESSAGE_LIMIT = 30;
+
+    const FREE_IMAGE_LIMIT = 5;
+
+    const IMAGE_LIMIT_WINDOW =
+      24 * 60 * 60 * 1000;
+
+
+    /* =========================
+       ADMIN EMAILS
+    ========================= */
+
+    const ADMIN_EMAILS = [
+      "uk7186979@gmail.com",
+      "m.rayyan.khan.120@gmail.com",
+      "shaneela.adamjee@gmail.com",
+      "shaneela.0324@gmail.com",
+      "umair.khan.gurunanak@gmail.com",
+      "umair.khan@bogo.pk",
+      "kifal.noon.libas.120@gmail.com"
+    ];
+
 
     /* =========================
        ELEMENTS
@@ -1804,6 +2005,9 @@
     const chatSearchInput =
       document.getElementById("chatSearchInput");
 
+    const selectionMenu =
+      document.getElementById("selectionMenu");
+
 
     /* =========================
        CHAT DATA
@@ -1824,6 +2028,10 @@
 
     let selectedImageFile = null;
 
+    let editingMessageIndex = null;
+
+    let selectedText = "";
+
 
     /* =========================
        AUTH DATA
@@ -1836,6 +2044,168 @@
 
     renderHistory();
     checkAuth();
+
+
+    /* =========================
+       ADMIN CHECK
+    ========================= */
+
+    function isAdminUser() {
+
+      const email =
+        currentUser?.email
+          ?.trim()
+          .toLowerCase();
+
+      return Boolean(
+        email &&
+        ADMIN_EMAILS.includes(email)
+      );
+
+    }
+
+
+    /* =========================
+       IMAGE LIMIT STORAGE
+    ========================= */
+
+    function getImageUsage() {
+
+      if (isAdminUser()) {
+        return [];
+      }
+
+      const now =
+        Date.now();
+
+      let usage =
+        JSON.parse(
+          localStorage.getItem(
+            "chatabot_image_usage"
+          ) || "[]"
+        );
+
+      usage =
+        usage.filter(
+          timestamp =>
+            now - timestamp <
+            IMAGE_LIMIT_WINDOW
+        );
+
+      localStorage.setItem(
+        "chatabot_image_usage",
+        JSON.stringify(usage)
+      );
+
+      return usage;
+
+    }
+
+
+    function canUseImageFeature() {
+
+      if (isAdminUser()) {
+        return true;
+      }
+
+      const usage =
+        getImageUsage();
+
+      if (
+        usage.length >=
+        FREE_IMAGE_LIMIT
+      ) {
+
+        alert(
+          "You have reached the free image limit of 5 images/uploads in 24 hours."
+        );
+
+        return false;
+
+      }
+
+      return true;
+
+    }
+
+
+    function recordImageUsage() {
+
+      if (isAdminUser()) {
+        return;
+      }
+
+      const usage =
+        getImageUsage();
+
+      usage.push(
+        Date.now()
+      );
+
+      localStorage.setItem(
+        "chatabot_image_usage",
+        JSON.stringify(usage)
+      );
+
+    }
+
+
+    /* =========================
+       MESSAGE LIMIT
+    ========================= */
+
+    function canSendMessage() {
+
+      if (isAdminUser()) {
+        return true;
+      }
+
+      if (!currentUser) {
+
+        if (
+          currentChat.filter(
+            message =>
+              message.role === "user"
+          ).length >=
+          GUEST_MESSAGE_LIMIT
+        ) {
+
+          signupPrompt();
+
+          showAuthMessage(
+            "Please create a free account to continue chatting."
+          );
+
+          return false;
+
+        }
+
+        return true;
+
+      }
+
+      const userMessages =
+        currentChat.filter(
+          message =>
+            message.role === "user"
+        ).length;
+
+      if (
+        userMessages >=
+        FREE_MESSAGE_LIMIT
+      ) {
+
+        alert(
+          "You have reached the 30-message limit for this chat. Please start a new chat."
+        );
+
+        return false;
+
+      }
+
+      return true;
+
+    }
 
 
     /* =========================
@@ -2019,10 +2389,19 @@
       profileName.textContent =
         name;
 
-      profilePlan.textContent =
-        plan === "free"
-          ? "Free plan"
-          : plan;
+      if (isAdminUser()) {
+
+        profilePlan.textContent =
+          "Admin • Unlimited";
+
+      } else {
+
+        profilePlan.textContent =
+          plan === "free"
+            ? "Free plan"
+            : plan;
+
+      }
 
       profileAvatar.textContent =
         name
@@ -2520,28 +2899,81 @@
     function isImageRequest(text) {
 
       const lower =
-        text.toLowerCase();
+        text.trim().toLowerCase();
 
-      const imageWords = [
+      const explicitImageWords = [
         "generate image",
         "generate an image",
+        "generate a picture",
+        "generate picture",
         "create image",
         "create an image",
+        "create a picture",
+        "create picture",
         "make an image",
         "make me an image",
-        "draw an image",
-        "generate a picture",
-        "create a picture",
         "make a picture",
-        "draw",
+        "make me a picture",
+        "draw an image",
+        "draw a picture",
         "image of",
-        "picture of"
+        "picture of",
+        "photo of"
       ];
 
-      return imageWords.some(
-        word =>
-          lower.includes(word)
-      );
+      if (
+        explicitImageWords.some(
+          word =>
+            lower.includes(word)
+        )
+      ) {
+        return true;
+      }
+
+      const visualStart =
+        /^(make|create|draw|generate|paint|render)\s+(me\s+)?(a|an)?\s*[a-z0-9]/i;
+
+      const nonImageRequests = [
+        "make a plan",
+        "make a list",
+        "make a table",
+        "make a sentence",
+        "make a paragraph",
+        "make an essay",
+        "make a website",
+        "make a code",
+        "make code",
+        "make an email",
+        "make a message",
+        "create a plan",
+        "create a list",
+        "create code",
+        "create a website",
+        "generate code",
+        "generate a list",
+        "generate a plan",
+        "draw a conclusion"
+      ];
+
+      if (
+        nonImageRequests.some(
+          phrase =>
+            lower === phrase ||
+            lower.startsWith(
+              phrase + " "
+            )
+        )
+      ) {
+        return false;
+      }
+
+      if (
+        visualStart.test(lower)
+      ) {
+        return true;
+      }
+
+      return false;
 
     }
 
@@ -2557,13 +2989,60 @@
       const text =
         input.value.trim();
 
-      if (!text) return;
+      if (
+        !text &&
+        !selectedImageFile
+      ) {
+        return;
+      }
+
+      if (!canSendMessage()) {
+        return;
+      }
+
+      if (
+        selectedImageFile &&
+        !canUseImageFeature()
+      ) {
+        return;
+      }
+
+      /* IMAGE UPLOAD */
+
+      if (selectedImageFile) {
+
+        if (!currentUser && !isAdminUser()) {
+
+          signupPrompt();
+
+          showAuthMessage(
+            "Please create a free account to upload and analyze images."
+          );
+
+          return;
+
+        }
+
+        await sendImageMessage(
+          text
+        );
+
+        return;
+
+      }
+
+
+      /* NORMAL / IMAGE GENERATION */
 
       removeWelcome();
 
+      const userIndex =
+        currentChat.length;
+
       addMessage(
         text,
-        "user"
+        "user",
+        userIndex
       );
 
       currentChat.push({
@@ -2593,6 +3072,41 @@
           isImageRequest(text)
         ) {
 
+          if (
+            !currentUser &&
+            !isAdminUser()
+          ) {
+
+            typingMessage.remove();
+
+            currentChat.pop();
+
+            renderCurrentChat();
+
+            signupPrompt();
+
+            showAuthMessage(
+              "Please create a free account before generating images."
+            );
+
+            return;
+
+          }
+
+          if (
+            !canUseImageFeature()
+          ) {
+
+            typingMessage.remove();
+
+            currentChat.pop();
+
+            renderCurrentChat();
+
+            return;
+
+          }
+
           const prompt =
             cleanImagePrompt(text);
 
@@ -2616,14 +3130,10 @@
           let data = null;
 
           try {
-
             data =
               await response.json();
-
           } catch (e) {
-
             data = null;
-
           }
 
           if (!response.ok) {
@@ -2644,6 +3154,8 @@
 
           }
 
+          recordImageUsage();
+
           typingMessage.remove();
 
           addImageMessage(
@@ -2653,8 +3165,11 @@
 
           currentChat.push({
             role: "bot",
-            content: "[Generated image]\n" + prompt,
-            image: data.image
+            content:
+              "[Generated image]\n" +
+              prompt,
+            image:
+              data.image
           });
 
           saveCurrentChat();
@@ -2726,9 +3241,13 @@
 
         typingMessage.remove();
 
+        const botIndex =
+          currentChat.length;
+
         addMessage(
           String(reply),
-          "bot"
+          "bot",
+          botIndex
         );
 
         currentChat.push({
@@ -2770,6 +3289,197 @@
 
 
     /* =========================
+       IMAGE UPLOAD MESSAGE
+    ========================= */
+
+    async function sendImageMessage(
+      text
+    ) {
+
+      if (aiBusy) return;
+
+      aiBusy = true;
+
+      sendButton.disabled =
+        true;
+
+      const file =
+        selectedImageFile;
+
+      try {
+
+        const imageData =
+          await fileToDataURL(file);
+
+        removeWelcome();
+
+        addUserImageMessage(
+          imageData,
+          text,
+          file.name
+        );
+
+        currentChat.push({
+          role: "user",
+          content:
+            text ||
+            "Please analyze this image.",
+          imageUpload: true,
+          imageName: file.name
+        });
+
+        input.value = "";
+
+        resizeTextarea();
+
+        clearSelectedImage();
+
+        saveCurrentChat();
+
+        const typingMessage =
+          addTypingMessage();
+
+        const response =
+          await fetch(
+            VISION_API_URL,
+            {
+              method: "POST",
+
+              headers: {
+                "Content-Type":
+                  "application/json"
+              },
+
+              body: JSON.stringify({
+                prompt:
+                  text ||
+                  "Please analyze this image and tell me what you see.",
+                image:
+                  imageData
+              })
+            }
+          );
+
+        let data = null;
+
+        try {
+          data =
+            await response.json();
+        } catch (e) {
+          data = null;
+        }
+
+        if (!response.ok) {
+
+          throw new Error(
+            data?.details ||
+            data?.error ||
+            "Image analysis failed."
+          );
+
+        }
+
+        const reply =
+          data?.response ||
+          data?.result?.response ||
+          data?.text ||
+          data?.result ||
+          "Sorry, I couldn't analyze this image.";
+
+        typingMessage.remove();
+
+        const botIndex =
+          currentChat.length;
+
+        addMessage(
+          String(reply),
+          "bot",
+          botIndex
+        );
+
+        currentChat.push({
+          role: "bot",
+          content: String(reply)
+        });
+
+        recordImageUsage();
+
+        saveCurrentChat();
+
+      } catch (error) {
+
+        console.error(
+          "Vision error:",
+          error
+        );
+
+        const typing =
+          document.querySelector(
+            ".typing"
+          );
+
+        if (typing) {
+          typing.closest(
+            ".message"
+          )?.remove();
+        }
+
+        addMessage(
+          "Sorry, I couldn't analyze that image right now.",
+          "bot"
+        );
+
+      } finally {
+
+        aiBusy = false;
+
+        sendButton.disabled =
+          false;
+
+        input.focus();
+
+      }
+
+    }
+
+
+    /* =========================
+       FILE TO DATA URL
+    ========================= */
+
+    function fileToDataURL(
+      file
+    ) {
+
+      return new Promise(
+        (
+          resolve,
+          reject
+        ) => {
+
+          const reader =
+            new FileReader();
+
+          reader.onload =
+            () =>
+              resolve(
+                reader.result
+              );
+
+          reader.onerror =
+            reject;
+
+          reader.readAsDataURL(
+            file
+          );
+
+        }
+      );
+
+    }
+
+
+    /* =========================
        IMAGE PROMPT CLEANER
     ========================= */
 
@@ -2785,18 +3495,25 @@
         /^could you\s+/i,
         /^please\s+/i,
         /^generate\s+(an?\s+)?image\s+(of\s+)?/i,
+        /^generate\s+(an?\s+)?picture\s+(of\s+)?/i,
         /^create\s+(an?\s+)?image\s+(of\s+)?/i,
+        /^create\s+(an?\s+)?picture\s+(of\s+)?/i,
         /^make\s+(me\s+)?(an?\s+)?image\s+(of\s+)?/i,
-        /^draw\s+(an?\s+)?image\s+(of\s+)?/i
+        /^make\s+(me\s+)?(an?\s+)?picture\s+(of\s+)?/i,
+        /^draw\s+(an?\s+)?image\s+(of\s+)?/i,
+        /^draw\s+(an?\s+)?picture\s+(of\s+)?/i,
+        /^(make|create|draw|generate|paint|render)\s+(me\s+)?(a|an)?\s+/i
       ];
 
       replacements.forEach(
         regex => {
+
           prompt =
             prompt.replace(
               regex,
               ""
             );
+
         }
       );
 
@@ -2809,12 +3526,108 @@
 
 
     /* =========================
+       ADD USER IMAGE MESSAGE
+    ========================= */
+
+    function addUserImageMessage(
+      imageData,
+      text,
+      fileName
+    ) {
+
+      const message =
+        document.createElement(
+          "div"
+        );
+
+      message.className =
+        "message user";
+
+      const avatar =
+        document.createElement(
+          "div"
+        );
+
+      avatar.className =
+        "message-avatar user-avatar";
+
+      avatar.textContent =
+        currentUser?.user_metadata?.full_name
+          ?.charAt(0)
+          ?.toUpperCase() ||
+        "U";
+
+      const content =
+        document.createElement(
+          "div"
+        );
+
+      content.className =
+        "message-content";
+
+      const image =
+        document.createElement(
+          "img"
+        );
+
+      image.className =
+        "uploaded-image";
+
+      image.src =
+        imageData;
+
+      image.alt =
+        fileName ||
+        "Uploaded image";
+
+      content.appendChild(
+        image
+      );
+
+      if (text) {
+
+        const textElement =
+          document.createElement(
+            "div"
+          );
+
+        textElement.textContent =
+          text;
+
+        content.appendChild(
+          textElement
+        );
+
+      }
+
+      message.appendChild(
+        content
+      );
+
+      message.appendChild(
+        avatar
+      );
+
+      messages.appendChild(
+        message
+      );
+
+      chatArea.scrollTop =
+        chatArea.scrollHeight;
+
+      return message;
+
+    }
+
+
+    /* =========================
        ADD TEXT MESSAGE
     ========================= */
 
     function addMessage(
       text,
-      type
+      type,
+      chatIndex = null
     ) {
 
       const message =
@@ -2880,8 +3693,167 @@
       content.className =
         "message-content";
 
-      content.textContent =
-        text;
+      if (
+        type === "bot"
+      ) {
+
+        renderBotContent(
+          content,
+          String(text)
+        );
+
+      } else {
+
+        content.textContent =
+          text;
+
+      }
+
+      const actions =
+        document.createElement(
+          "div"
+        );
+
+      actions.className =
+        "message-actions";
+
+      const menuWrap =
+        document.createElement(
+          "div"
+        );
+
+      menuWrap.className =
+        "message-menu-wrap";
+
+      const menuButton =
+        document.createElement(
+          "button"
+        );
+
+      menuButton.className =
+        "message-menu-button";
+
+      menuButton.textContent =
+        "⋮";
+
+      menuButton.title =
+        "Message options";
+
+      const menu =
+        document.createElement(
+          "div"
+        );
+
+      menu.className =
+        "message-menu";
+
+      const copyButton =
+        document.createElement(
+          "button"
+        );
+
+      copyButton.textContent =
+        "Copy message";
+
+      copyButton.onclick =
+        event => {
+
+          event.stopPropagation();
+
+          copyText(
+            String(text)
+          );
+
+          menu.classList.remove(
+            "show"
+          );
+
+        };
+
+      menu.appendChild(
+        copyButton
+      );
+
+      if (
+        type === "user" &&
+        chatIndex !== null
+      ) {
+
+        const editButton =
+          document.createElement(
+            "button"
+          );
+
+        editButton.textContent =
+          "Edit message";
+
+        editButton.onclick =
+          event => {
+
+            event.stopPropagation();
+
+            editUserMessage(
+              chatIndex
+            );
+
+            menu.classList.remove(
+              "show"
+            );
+
+          };
+
+        menu.appendChild(
+          editButton
+        );
+
+      }
+
+      menuButton.onclick =
+        event => {
+
+          event.stopPropagation();
+
+          document
+            .querySelectorAll(
+              ".message-menu.show"
+            )
+            .forEach(
+              openMenu => {
+
+                if (
+                  openMenu !== menu
+                ) {
+
+                  openMenu.classList.remove(
+                    "show"
+                  );
+
+                }
+
+              }
+            );
+
+          menu.classList.toggle(
+            "show"
+          );
+
+        };
+
+      menuWrap.appendChild(
+        menuButton
+      );
+
+      menuWrap.appendChild(
+        menu
+      );
+
+      actions.appendChild(
+        menuWrap
+      );
+
+      content.appendChild(
+        actions
+      );
 
       message.appendChild(
         avatar
@@ -2899,6 +3871,42 @@
         chatArea.scrollHeight;
 
       return message;
+
+    }
+
+
+    /* =========================
+       EDIT USER MESSAGE
+    ========================= */
+
+    function editUserMessage(
+      index
+    ) {
+
+      const message =
+        currentChat[index];
+
+      if (
+        !message ||
+        message.role !== "user"
+      ) {
+        return;
+      }
+
+      editingMessageIndex =
+        index;
+
+      input.value =
+        message.content || "";
+
+      resizeTextarea();
+
+      input.focus();
+
+      input.setSelectionRange(
+        input.value.length,
+        input.value.length
+      );
 
     }
 
@@ -2977,7 +3985,8 @@
             imageData;
 
       image.alt =
-        prompt || "Generated image";
+        prompt ||
+        "Generated image";
 
       content.appendChild(
         label
@@ -2985,6 +3994,86 @@
 
       content.appendChild(
         image
+      );
+
+      const actions =
+        document.createElement(
+          "div"
+        );
+
+      actions.className =
+        "message-actions";
+
+      const menuWrap =
+        document.createElement(
+          "div"
+        );
+
+      menuWrap.className =
+        "message-menu-wrap";
+
+      const menuButton =
+        document.createElement(
+          "button"
+        );
+
+      menuButton.className =
+        "message-menu-button";
+
+      menuButton.textContent =
+        "⋮";
+
+      const menu =
+        document.createElement(
+          "div"
+        );
+
+      menu.className =
+        "message-menu";
+
+      const copyButton =
+        document.createElement(
+          "button"
+        );
+
+      copyButton.textContent =
+        "Copy prompt";
+
+      copyButton.onclick =
+        () =>
+          copyText(
+            prompt || ""
+          );
+
+      menu.appendChild(
+        copyButton
+      );
+
+      menuButton.onclick =
+        event => {
+
+          event.stopPropagation();
+
+          menu.classList.toggle(
+            "show"
+          );
+
+        };
+
+      menuWrap.appendChild(
+        menuButton
+      );
+
+      menuWrap.appendChild(
+        menu
+      );
+
+      actions.appendChild(
+        menuWrap
+      );
+
+      content.appendChild(
+        actions
       );
 
       message.appendChild(
@@ -3003,6 +4092,391 @@
         chatArea.scrollHeight;
 
       return message;
+
+    }
+
+
+    /* =========================
+       BOT CONTENT RENDERER
+    ========================= */
+
+    function renderBotContent(
+      container,
+      text
+    ) {
+
+      const codeRegex =
+        /```([\w#+.-]*)\n?([\s\S]*?)```/g;
+
+      let lastIndex = 0;
+
+      let match;
+
+      while (
+        (match =
+          codeRegex.exec(text)) !==
+        null
+      ) {
+
+        if (
+          match.index >
+          lastIndex
+        ) {
+
+          const before =
+            text.substring(
+              lastIndex,
+              match.index
+            );
+
+          const div =
+            document.createElement(
+              "div"
+            );
+
+          div.className =
+            "plain-bot-text";
+
+          div.textContent =
+            before;
+
+          container.appendChild(
+            div
+          );
+
+        }
+
+        const language =
+          match[1] ||
+          "code";
+
+        const code =
+          match[2]
+            .replace(
+              /^\n/,
+              ""
+            )
+            .replace(
+              /\n$/,
+              ""
+            );
+
+        const block =
+          document.createElement(
+            "div"
+          );
+
+        block.className =
+          "code-block";
+
+        const header =
+          document.createElement(
+            "div"
+          );
+
+        header.className =
+          "code-header";
+
+        const label =
+          document.createElement(
+            "span"
+          );
+
+        label.textContent =
+          language;
+
+        const copyButton =
+          document.createElement(
+            "button"
+          );
+
+        copyButton.className =
+          "copy-code-button";
+
+        copyButton.textContent =
+          "Copy";
+
+        copyButton.onclick =
+          async () => {
+
+            await copyText(
+              code
+            );
+
+            copyButton.textContent =
+              "Copied";
+
+            setTimeout(
+              () => {
+                copyButton.textContent =
+                  "Copy";
+              },
+              1200
+            );
+
+          };
+
+        header.appendChild(
+          label
+        );
+
+        header.appendChild(
+          copyButton
+        );
+
+        const pre =
+          document.createElement(
+            "pre"
+          );
+
+        pre.textContent =
+          code;
+
+        block.appendChild(
+          header
+        );
+
+        block.appendChild(
+          pre
+        );
+
+        container.appendChild(
+          block
+        );
+
+        lastIndex =
+          codeRegex.lastIndex;
+
+      }
+
+      if (
+        lastIndex <
+        text.length
+      ) {
+
+        const remaining =
+          text.substring(
+            lastIndex
+          );
+
+        const div =
+          document.createElement(
+            "div"
+          );
+
+        div.className =
+          "plain-bot-text";
+
+        div.textContent =
+          remaining;
+
+        container.appendChild(
+          div
+        );
+
+      }
+
+      if (
+        !container.children.length
+      ) {
+
+        const div =
+          document.createElement(
+            "div"
+          );
+
+        div.className =
+          "plain-bot-text";
+
+        div.textContent =
+          text;
+
+        container.appendChild(
+          div
+        );
+
+      }
+
+    }
+
+
+    /* =========================
+       COPY TEXT
+    ========================= */
+
+    async function copyText(
+      text
+    ) {
+
+      try {
+
+        await navigator.clipboard.writeText(
+          text
+        );
+
+      } catch (error) {
+
+        const area =
+          document.createElement(
+            "textarea"
+          );
+
+        area.value =
+          text;
+
+        document.body.appendChild(
+          area
+        );
+
+        area.select();
+
+        document.execCommand(
+          "copy"
+        );
+
+        area.remove();
+
+      }
+
+    }
+
+
+    /* =========================
+       SELECTION MENU
+    ========================= */
+
+    document.addEventListener(
+      "mouseup",
+      event => {
+
+        setTimeout(
+          () => {
+
+            const selection =
+              window.getSelection();
+
+            const text =
+              selection?.toString()
+                ?.trim();
+
+            if (
+              !text ||
+              !selection ||
+              selection.rangeCount === 0
+            ) {
+
+              selectionMenu.classList.remove(
+                "show"
+              );
+
+              return;
+
+            }
+
+            const node =
+              selection.anchorNode;
+
+            const messageElement =
+              node?.parentElement
+                ?.closest(
+                  ".message-content"
+                );
+
+            if (!messageElement) {
+
+              selectionMenu.classList.remove(
+                "show"
+              );
+
+              return;
+
+            }
+
+            selectedText =
+              text;
+
+            const range =
+              selection.getRangeAt(0);
+
+            const rect =
+              range.getBoundingClientRect();
+
+            let left =
+              rect.left;
+
+            let top =
+              rect.top - 45;
+
+            if (top < 5) {
+              top =
+                rect.bottom + 8;
+            }
+
+            if (
+              left + 180 >
+              window.innerWidth
+            ) {
+
+              left =
+                window.innerWidth -
+                190;
+
+            }
+
+            selectionMenu.style.left =
+              Math.max(
+                5,
+                left
+              ) + "px";
+
+            selectionMenu.style.top =
+              Math.max(
+                5,
+                top
+              ) + "px";
+
+            selectionMenu.classList.add(
+              "show"
+            );
+
+          },
+          0
+        );
+
+      }
+    );
+
+
+    function copySelectedText() {
+
+      if (!selectedText) return;
+
+      copyText(
+        selectedText
+      );
+
+      selectionMenu.classList.remove(
+        "show"
+      );
+
+    }
+
+
+    function askSelectedText() {
+
+      if (!selectedText) return;
+
+      input.value =
+        "Please explain this:\n\n" +
+        selectedText;
+
+      resizeTextarea();
+
+      input.focus();
+
+      selectionMenu.classList.remove(
+        "show"
+      );
 
     }
 
@@ -3081,6 +4555,121 @@
 
 
     /* =========================
+       RENDER CURRENT CHAT
+    ========================= */
+
+    function renderCurrentChat() {
+
+      messages.innerHTML =
+        "";
+
+      if (
+        !currentChat.length
+      ) {
+
+        showWelcome();
+
+        return;
+
+      }
+
+      currentChat.forEach(
+        (
+          message,
+          index
+        ) => {
+
+          if (
+            message.image
+          ) {
+
+            addImageMessage(
+              message.image,
+              message.content
+                ?.replace(
+                  "[Generated image]\n",
+                  ""
+                )
+            );
+
+          } else if (
+            message.imageUpload
+          ) {
+
+            const placeholder =
+              document.createElement(
+                "div"
+              );
+
+            placeholder.className =
+              "message user";
+
+            const avatar =
+              document.createElement(
+                "div"
+              );
+
+            avatar.className =
+              "message-avatar user-avatar";
+
+            avatar.textContent =
+              currentUser?.user_metadata?.full_name
+                ?.charAt(0)
+                ?.toUpperCase() ||
+              "U";
+
+            const content =
+              document.createElement(
+                "div"
+              );
+
+            content.className =
+              "message-content";
+
+            content.textContent =
+              "📎 " +
+              (
+                message.imageName ||
+                "Uploaded image"
+              ) +
+              (
+                message.content
+                  ? "\n" +
+                    message.content
+                  : ""
+              );
+
+            placeholder.appendChild(
+              content
+            );
+
+            placeholder.appendChild(
+              avatar
+            );
+
+            messages.appendChild(
+              placeholder
+            );
+
+          } else {
+
+            addMessage(
+              message.content,
+              message.role === "user"
+                ? "user"
+                : "bot",
+              index
+            );
+
+          }
+
+        }
+      );
+
+    }
+
+
+    /* =========================
        NEW CHAT
     ========================= */
 
@@ -3098,24 +4687,16 @@
 
       selectedChat = null;
 
+      editingMessageIndex =
+        null;
+
       showWelcome();
 
       input.value = "";
 
       resizeTextarea();
 
-      uploadPreview.style.display =
-        "none";
-
-      uploadPreview.textContent =
-        "";
-
-      selectedImageFile =
-        null;
-
-      document.getElementById(
-        "fileInput"
-      ).value = "";
+      clearSelectedImage();
 
       closeMobileSidebar();
 
@@ -3176,10 +4757,21 @@
 
       }
 
-      localStorage.setItem(
-        "chatabot_history",
-        JSON.stringify(chats)
-      );
+      try {
+
+        localStorage.setItem(
+          "chatabot_history",
+          JSON.stringify(chats)
+        );
+
+      } catch (error) {
+
+        console.error(
+          "Could not save chat:",
+          error
+        );
+
+      }
 
       renderHistory();
 
@@ -3750,38 +5342,10 @@
       currentChat =
         [...chat.messages];
 
-      messages.innerHTML =
-        "";
+      editingMessageIndex =
+        null;
 
-      currentChat.forEach(
-        message => {
-
-          if (
-            message.image
-          ) {
-
-            addImageMessage(
-              message.image,
-              message.content
-                ?.replace(
-                  "[Generated image]\n",
-                  ""
-                )
-            );
-
-          } else {
-
-            addMessage(
-              message.content,
-              message.role === "user"
-                ? "user"
-                : "bot"
-            );
-
-          }
-
-        }
-      );
+      renderCurrentChat();
 
       renderHistory();
 
@@ -3894,6 +5458,47 @@
 
       if (!file) return;
 
+      if (
+        !file.type.startsWith(
+          "image/"
+        )
+      ) {
+
+        alert(
+          "Please select an image file."
+        );
+
+        return;
+
+      }
+
+      if (
+        file.size >
+        5 * 1024 * 1024
+      ) {
+
+        alert(
+          "Please choose an image smaller than 5 MB."
+        );
+
+        event.target.value =
+          "";
+
+        return;
+
+      }
+
+      if (
+        !canUseImageFeature()
+      ) {
+
+        event.target.value =
+          "";
+
+        return;
+
+      }
+
       selectedImageFile =
         file;
 
@@ -3903,7 +5508,29 @@
       uploadPreview.textContent =
         "📎 " +
         file.name +
-        " selected";
+        " selected — press Send to analyze";
+
+    }
+
+
+    function clearSelectedImage() {
+
+      selectedImageFile =
+        null;
+
+      uploadPreview.style.display =
+        "none";
+
+      uploadPreview.textContent =
+        "";
+
+      const fileInput =
+        document.getElementById(
+          "fileInput"
+        );
+
+      fileInput.value =
+        "";
 
     }
 
@@ -3960,29 +5587,81 @@
 
     document.addEventListener(
       "click",
-      () => {
+      event => {
 
-        document
-          .querySelectorAll(
-            ".chat-menu.show"
+        if (
+          !event.target.closest(
+            ".message-menu-wrap"
           )
-          .forEach(
-            menu =>
-              menu.classList.remove(
-                "show"
-              )
-          );
+        ) {
 
-        document
-          .querySelectorAll(
-            ".chat-menu-button.open"
+          document
+            .querySelectorAll(
+              ".message-menu.show"
+            )
+            .forEach(
+              menu =>
+                menu.classList.remove(
+                  "show"
+                )
+            );
+
+        }
+
+        if (
+          !event.target.closest(
+            ".chat-menu-button"
+          ) &&
+          !event.target.closest(
+            ".chat-menu"
           )
-          .forEach(
-            button =>
-              button.classList.remove(
-                "open"
-              )
-          );
+        ) {
+
+          document
+            .querySelectorAll(
+              ".chat-menu.show"
+            )
+            .forEach(
+              menu =>
+                menu.classList.remove(
+                  "show"
+                )
+            );
+
+          document
+            .querySelectorAll(
+              ".chat-menu-button.open"
+            )
+            .forEach(
+              button =>
+                button.classList.remove(
+                  "open"
+                )
+            );
+
+        }
+
+        if (
+          !event.target.closest(
+            ".selection-menu"
+          )
+        ) {
+
+          const selection =
+            window.getSelection();
+
+          if (
+            !selection ||
+            !selection.toString().trim()
+          ) {
+
+            selectionMenu.classList.remove(
+              "show"
+            );
+
+          }
+
+        }
 
       }
     );
