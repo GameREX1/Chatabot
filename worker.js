@@ -2,7 +2,7 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
-    // AI chat API
+    // AI CHAT
     if (url.pathname === "/api/chat" && request.method === "POST") {
       try {
         const body = await request.json();
@@ -19,14 +19,49 @@ export default {
         return Response.json(
           {
             error: "Chatabot AI error",
-            details: error.message
+            details: error?.message || String(error)
           },
           { status: 500 }
         );
       }
     }
 
-    // Serve the website
+    // IMAGE GENERATION
+    if (url.pathname === "/api/image" && request.method === "POST") {
+      try {
+        const body = await request.json();
+
+        const prompt = body.prompt;
+
+        if (!prompt) {
+          return Response.json(
+            { error: "Image prompt is required." },
+            { status: 400 }
+          );
+        }
+
+        const image = await env.AI.run(
+          "@cf/black-forest-labs/flux-1-schnell",
+          {
+            prompt: prompt
+          }
+        );
+
+        return Response.json({
+          image: image.image
+        });
+      } catch (error) {
+        return Response.json(
+          {
+            error: "Image generation error",
+            details: error?.message || String(error)
+          },
+          { status: 500 }
+        );
+      }
+    }
+
+    // WEBSITE
     return env.ASSETS.fetch(request);
   }
 };
