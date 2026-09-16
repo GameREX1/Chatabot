@@ -4,7 +4,6 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
   <title>Chatabot</title>
 
   <style>
@@ -14,22 +13,32 @@
       box-sizing: border-box;
     }
 
+    :root {
+      --bg: #212121;
+      --sidebar: #171717;
+      --panel: #2f2f2f;
+      --hover: #2a2a2a;
+      --border: #3a3a3a;
+      --text: #fff;
+      --muted: #9b9b9b;
+    }
+
     body {
       font-family: Arial, Helvetica, sans-serif;
-      background: #212121;
-      color: #ffffff;
+      background: var(--bg);
+      color: var(--text);
       height: 100vh;
       overflow: hidden;
     }
 
-    /* =========================
-       APP
-    ========================= */
+    button {
+      font-family: inherit;
+    }
 
     .app {
       display: flex;
-      height: 100vh;
       width: 100%;
+      height: 100vh;
     }
 
     /* =========================
@@ -37,99 +46,141 @@
     ========================= */
 
     .sidebar {
-      width: 260px;
-      background: #171717;
+      width: 270px;
+      background: var(--sidebar);
       display: flex;
       flex-direction: column;
       padding: 12px;
       flex-shrink: 0;
+      border-right: 1px solid #242424;
+      z-index: 20;
     }
 
     .brand {
       display: flex;
       align-items: center;
       gap: 10px;
-      padding: 12px 10px 20px;
+      padding: 10px 9px 18px;
       font-size: 20px;
-      font-weight: bold;
+      font-weight: 700;
     }
 
-    .brand-icon {
-      width: 32px;
-      height: 32px;
-      border-radius: 9px;
-      background: #ffffff;
+    .brand-icon,
+    .welcome-logo {
+      background: #fff;
       color: #171717;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-weight: bold;
+      font-weight: 800;
+    }
+
+    .brand-icon {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
     }
 
     .new-chat {
       width: 100%;
-      border: 1px solid #3a3a3a;
+      border: 1px solid #3b3b3b;
       background: transparent;
       color: white;
-      padding: 12px;
-      border-radius: 8px;
+      padding: 12px 13px;
+      border-radius: 9px;
       cursor: pointer;
       text-align: left;
       font-size: 14px;
-      margin-bottom: 20px;
+      margin-bottom: 22px;
+      transition: .15s;
     }
 
     .new-chat:hover {
-      background: #2a2a2a;
+      background: var(--hover);
     }
 
     .history-title {
       font-size: 12px;
-      color: #8e8e8e;
-      padding: 0 10px 10px;
+      color: #777;
+      padding: 0 10px 9px;
+      text-transform: uppercase;
+      letter-spacing: .4px;
     }
 
     .history {
       flex: 1;
       overflow-y: auto;
+      min-height: 0;
     }
 
     .history-item {
-      padding: 10px;
-      border-radius: 7px;
-      color: #d0d0d0;
+      padding: 10px 11px;
+      border-radius: 8px;
+      color: #d2d2d2;
       font-size: 14px;
       cursor: pointer;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      margin-bottom: 2px;
     }
 
-    .history-item:hover {
-      background: #2a2a2a;
+    .history-item:hover,
+    .history-item.active {
+      background: var(--hover);
+    }
+
+    .empty-history {
+      color: #666;
+      font-size: 13px;
+      padding: 10px;
     }
 
     .profile {
       border-top: 1px solid #303030;
-      padding-top: 12px;
+      padding: 12px 5px 3px;
       display: flex;
       align-items: center;
       gap: 10px;
     }
 
     .avatar {
-      width: 34px;
-      height: 34px;
+      width: 36px;
+      height: 36px;
       border-radius: 50%;
-      background: #444;
+      background: #3b3b3b;
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 13px;
+      flex-shrink: 0;
+    }
+
+    .profile-info {
+      min-width: 0;
+      flex: 1;
     }
 
     .profile-name {
       font-size: 14px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .profile-plan {
+      color: #777;
+      font-size: 11px;
+      margin-top: 3px;
+    }
+
+    .profile-button {
+      border: none;
+      background: transparent;
+      color: #aaa;
+      cursor: pointer;
+      font-size: 18px;
+      padding: 5px;
     }
 
     /* =========================
@@ -141,21 +192,57 @@
       display: flex;
       flex-direction: column;
       min-width: 0;
+      position: relative;
     }
 
     .topbar {
-      height: 58px;
+      height: 60px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       padding: 0 22px;
       border-bottom: 1px solid #303030;
-      background: #212121;
+      background: var(--bg);
+      flex-shrink: 0;
+    }
+
+    .top-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
     }
 
     .model-name {
       font-size: 15px;
       font-weight: 600;
+    }
+
+    .model-badge {
+      font-size: 10px;
+      color: #aaa;
+      border: 1px solid #444;
+      padding: 3px 7px;
+      border-radius: 6px;
+    }
+
+    .top-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .top-button {
+      border: 1px solid #3a3a3a;
+      background: transparent;
+      color: #ddd;
+      padding: 7px 11px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    .top-button:hover {
+      background: var(--hover);
     }
 
     .menu-button {
@@ -174,7 +261,8 @@
     .chat-area {
       flex: 1;
       overflow-y: auto;
-      padding: 30px 20px 140px;
+      padding: 20px 20px 155px;
+      scroll-behavior: smooth;
     }
 
     .messages {
@@ -192,34 +280,30 @@
     }
 
     .welcome-logo {
-      width: 64px;
-      height: 64px;
-      border-radius: 18px;
-      background: white;
-      color: #171717;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 26px;
-      font-weight: bold;
+      width: 68px;
+      height: 68px;
+      border-radius: 20px;
+      font-size: 28px;
       margin-bottom: 22px;
+      box-shadow: 0 8px 30px rgba(0,0,0,.18);
     }
 
     .welcome h1 {
       font-size: 32px;
       margin-bottom: 10px;
+      letter-spacing: -.5px;
     }
 
     .welcome p {
-      color: #9b9b9b;
+      color: var(--muted);
       font-size: 15px;
     }
 
     .message {
       display: flex;
       gap: 14px;
-      margin: 25px 0;
-      line-height: 1.6;
+      margin: 26px 0;
+      line-height: 1.65;
       font-size: 15px;
     }
 
@@ -240,7 +324,7 @@
     }
 
     .bot-avatar {
-      background: white;
+      background: #fff;
       color: #171717;
     }
 
@@ -258,25 +342,40 @@
     .input-wrapper {
       position: fixed;
       bottom: 0;
-      left: 260px;
+      left: 270px;
       right: 0;
-      padding: 20px;
-      background: linear-gradient(
-        transparent,
-        #212121 35%
-      );
+      padding: 20px 20px 18px;
+      background: linear-gradient(transparent, var(--bg) 32%);
+      z-index: 10;
     }
 
     .input-box {
       max-width: 850px;
       margin: 0 auto;
-      background: #2f2f2f;
-      border: 1px solid #444;
-      border-radius: 15px;
+      background: var(--panel);
+      border: 1px solid #454545;
+      border-radius: 17px;
       display: flex;
       align-items: flex-end;
-      padding: 10px;
-      box-shadow: 0 5px 30px rgba(0,0,0,0.2);
+      padding: 9px;
+      box-shadow: 0 8px 35px rgba(0,0,0,.25);
+    }
+
+    .attach-button {
+      width: 38px;
+      height: 38px;
+      border: none;
+      border-radius: 10px;
+      background: transparent;
+      color: #aaa;
+      cursor: pointer;
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+
+    .attach-button:hover {
+      background: #3a3a3a;
+      color: white;
     }
 
     textarea {
@@ -291,7 +390,7 @@
       line-height: 1.5;
       max-height: 150px;
       min-height: 24px;
-      padding: 6px 8px;
+      padding: 7px 8px;
     }
 
     textarea::placeholder {
@@ -312,11 +411,11 @@
     }
 
     .send-button:hover {
-      opacity: 0.85;
+      opacity: .85;
     }
 
     .send-button:disabled {
-      opacity: 0.4;
+      opacity: .35;
       cursor: default;
     }
 
@@ -327,23 +426,50 @@
       margin-top: 8px;
     }
 
+    #fileInput {
+      display: none;
+    }
+
+    .upload-preview {
+      max-width: 850px;
+      margin: 0 auto 7px;
+      display: none;
+      background: #2b2b2b;
+      border: 1px solid #414141;
+      border-radius: 10px;
+      padding: 8px 10px;
+      color: #bbb;
+      font-size: 12px;
+    }
+
     /* =========================
        MOBILE
     ========================= */
+
+    .overlay {
+      display: none;
+    }
 
     @media (max-width: 700px) {
 
       .sidebar {
         position: fixed;
-        left: -260px;
+        left: -270px;
         top: 0;
         bottom: 0;
-        z-index: 10;
-        transition: left 0.25s ease;
+        transition: left .25s ease;
       }
 
       .sidebar.open {
         left: 0;
+      }
+
+      .overlay.show {
+        display: block;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,.55);
+        z-index: 15;
       }
 
       .menu-button {
@@ -351,7 +477,11 @@
       }
 
       .topbar {
-        padding: 0 15px;
+        padding: 0 14px;
+      }
+
+      .top-right .top-button {
+        display: none;
       }
 
       .input-wrapper {
@@ -367,6 +497,10 @@
       .welcome h1 {
         font-size: 27px;
       }
+
+      .model-badge {
+        display: none;
+      }
     }
   </style>
 </head>
@@ -374,6 +508,8 @@
 <body>
 
   <div class="app">
+
+    <div class="overlay" id="overlay" onclick="toggleSidebar()"></div>
 
     <!-- SIDEBAR -->
     <aside class="sidebar" id="sidebar">
@@ -387,15 +523,21 @@
         ＋ New chat
       </button>
 
-      <div class="history-title">
-        Recent chats
-      </div>
+      <div class="history-title">Recent chats</div>
 
-      <div class="history" id="history"></div>
+      <div class="history" id="history">
+        <div class="empty-history">No chats yet</div>
+      </div>
 
       <div class="profile">
         <div class="avatar">U</div>
-        <div class="profile-name">User</div>
+
+        <div class="profile-info">
+          <div class="profile-name">Guest</div>
+          <div class="profile-plan">Free plan</div>
+        </div>
+
+        <button class="profile-button" onclick="loginPrompt()">⋯</button>
       </div>
 
     </aside>
@@ -404,9 +546,25 @@
     <main class="main">
 
       <header class="topbar">
-        <button class="menu-button" onclick="toggleSidebar()">☰</button>
-        <div class="model-name">Chatabot</div>
-        <div></div>
+
+        <div class="top-left">
+          <button class="menu-button" onclick="toggleSidebar()">☰</button>
+
+          <div class="model-name">Chatabot</div>
+
+          <div class="model-badge">AI</div>
+        </div>
+
+        <div class="top-right">
+          <button class="top-button" onclick="loginPrompt()">
+            Log in
+          </button>
+
+          <button class="top-button" onclick="signupPrompt()">
+            Sign up
+          </button>
+        </div>
+
       </header>
 
       <section class="chat-area" id="chatArea">
@@ -430,7 +588,24 @@
       <!-- INPUT -->
       <div class="input-wrapper">
 
+        <div class="upload-preview" id="uploadPreview"></div>
+
         <div class="input-box">
+
+          <input
+            type="file"
+            id="fileInput"
+            accept="image/*"
+            onchange="handleImageUpload(event)"
+          >
+
+          <button
+            class="attach-button"
+            onclick="document.getElementById('fileInput').click()"
+            title="Upload image"
+          >
+            ＋
+          </button>
 
           <textarea
             id="userInput"
@@ -460,16 +635,20 @@
 
   </div>
 
-
   <script>
 
     const input = document.getElementById("userInput");
     const messages = document.getElementById("messages");
-    const welcome = document.getElementById("welcome");
     const history = document.getElementById("history");
     const chatArea = document.getElementById("chatArea");
+    const uploadPreview = document.getElementById("uploadPreview");
 
     let currentChat = [];
+    let chats = JSON.parse(localStorage.getItem("chatabot_history") || "[]");
+    let selectedChat = null;
+
+    renderHistory();
+
 
     /* =========================
        SEND MESSAGE
@@ -481,9 +660,7 @@
 
       if (!text) return;
 
-      if (welcome) {
-        welcome.style.display = "none";
-      }
+      removeWelcome();
 
       addMessage(text, "user");
 
@@ -494,6 +671,8 @@
 
       input.value = "";
       resizeTextarea();
+
+      saveCurrentChat();
 
       setTimeout(() => {
 
@@ -508,6 +687,8 @@
           role: "bot",
           content: reply
         });
+
+        saveCurrentChat();
 
       }, 500);
 
@@ -524,6 +705,7 @@
       message.className = "message";
 
       const avatar = document.createElement("div");
+
       avatar.className =
         "message-avatar " +
         (type === "user" ? "user-avatar" : "bot-avatar");
@@ -551,25 +733,172 @@
 
     function newChat() {
 
+      if (currentChat.length > 0) {
+        saveCurrentChat();
+      }
+
+      currentChat = [];
+      selectedChat = null;
+
+      showWelcome();
+
+      input.value = "";
+      resizeTextarea();
+
+      uploadPreview.style.display = "none";
+      uploadPreview.textContent = "";
+
+      document.getElementById("fileInput").value = "";
+
+      closeMobileSidebar();
+
+      renderHistory();
+
+    }
+
+
+    /* =========================
+       SAVE CHAT
+    ========================= */
+
+    function saveCurrentChat() {
+
+      if (!currentChat.length) return;
+
+      const firstUserMessage =
+        currentChat.find(m => m.role === "user");
+
+      const title =
+        firstUserMessage
+          ? firstUserMessage.content.substring(0, 45)
+          : "New chat";
+
+      if (selectedChat !== null) {
+
+        chats[selectedChat] = {
+          title: title,
+          messages: currentChat
+        };
+
+      } else {
+
+        chats.unshift({
+          title: title,
+          messages: currentChat
+        });
+
+        selectedChat = 0;
+
+      }
+
+      localStorage.setItem(
+        "chatabot_history",
+        JSON.stringify(chats)
+      );
+
+      renderHistory();
+
+    }
+
+
+    /* =========================
+       HISTORY
+    ========================= */
+
+    function renderHistory() {
+
+      history.innerHTML = "";
+
+      if (!chats.length) {
+
+        history.innerHTML =
+          '<div class="empty-history">No chats yet</div>';
+
+        return;
+
+      }
+
+      chats.forEach((chat, index) => {
+
+        const item = document.createElement("div");
+
+        item.className =
+          "history-item " +
+          (index === selectedChat ? "active" : "");
+
+        item.textContent = chat.title || "New chat";
+
+        item.onclick = () => loadChat(index);
+
+        history.appendChild(item);
+
+      });
+
+    }
+
+
+    /* =========================
+       LOAD CHAT
+    ========================= */
+
+    function loadChat(index) {
+
+      const chat = chats[index];
+
+      if (!chat) return;
+
+      selectedChat = index;
+
+      currentChat = [...chat.messages];
+
       messages.innerHTML = "";
 
-      const newWelcome = document.createElement("div");
+      currentChat.forEach(message => {
 
-      newWelcome.className = "welcome";
+        addMessage(
+          message.content,
+          message.role === "user" ? "user" : "bot"
+        );
 
-      newWelcome.innerHTML = `
+      });
+
+      renderHistory();
+
+      closeMobileSidebar();
+
+    }
+
+
+    /* =========================
+       WELCOME
+    ========================= */
+
+    function removeWelcome() {
+
+      const welcome = document.getElementById("welcome");
+
+      if (welcome) {
+        welcome.remove();
+      }
+
+    }
+
+    function showWelcome() {
+
+      messages.innerHTML = "";
+
+      const welcome = document.createElement("div");
+
+      welcome.className = "welcome";
+      welcome.id = "welcome";
+
+      welcome.innerHTML = `
         <div class="welcome-logo">C</div>
         <h1>How can I help you?</h1>
         <p>Ask Chatabot anything.</p>
       `;
 
-      messages.appendChild(newWelcome);
-
-      currentChat = [];
-
-      input.value = "";
-
-      resizeTextarea();
+      messages.appendChild(welcome);
 
     }
 
@@ -580,7 +909,10 @@
 
     function handleKey(event) {
 
-      if (event.key === "Enter" && !event.shiftKey) {
+      if (
+        event.key === "Enter" &&
+        !event.shiftKey
+      ) {
 
         event.preventDefault();
 
@@ -606,6 +938,24 @@
 
 
     /* =========================
+       IMAGE UPLOAD UI
+    ========================= */
+
+    function handleImageUpload(event) {
+
+      const file = event.target.files[0];
+
+      if (!file) return;
+
+      uploadPreview.style.display = "block";
+
+      uploadPreview.textContent =
+        "📎 " + file.name + " selected";
+
+    }
+
+
+    /* =========================
        MOBILE SIDEBAR
     ========================= */
 
@@ -614,6 +964,44 @@
       document
         .getElementById("sidebar")
         .classList.toggle("open");
+
+      document
+        .getElementById("overlay")
+        .classList.toggle("show");
+
+    }
+
+
+    function closeMobileSidebar() {
+
+      document
+        .getElementById("sidebar")
+        .classList.remove("open");
+
+      document
+        .getElementById("overlay")
+        .classList.remove("show");
+
+    }
+
+
+    /* =========================
+       ACCOUNT PLACEHOLDERS
+    ========================= */
+
+    function loginPrompt() {
+
+      alert(
+        "Login / Signup system will be connected in the next step."
+      );
+
+    }
+
+    function signupPrompt() {
+
+      alert(
+        "Signup system will be connected in the next step."
+      );
 
     }
 
