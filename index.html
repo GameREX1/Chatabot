@@ -1,4 +1,3 @@
-```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -40,10 +39,6 @@
       width: 100%;
       height: 100vh;
     }
-
-    /* =========================
-       SIDEBAR
-    ========================= */
 
     .sidebar {
       width: 270px;
@@ -183,10 +178,6 @@
       padding: 5px;
     }
 
-    /* =========================
-       MAIN
-    ========================= */
-
     .main {
       flex: 1;
       display: flex;
@@ -253,10 +244,6 @@
       font-size: 22px;
       cursor: pointer;
     }
-
-    /* =========================
-       CHAT
-    ========================= */
 
     .chat-area {
       flex: 1;
@@ -334,10 +321,6 @@
       white-space: pre-wrap;
       word-break: break-word;
     }
-
-    /* =========================
-       INPUT
-    ========================= */
 
     .input-wrapper {
       position: fixed;
@@ -442,12 +425,132 @@
       font-size: 12px;
     }
 
-    /* =========================
-       MOBILE
-    ========================= */
+    /* AUTH MODAL */
 
-    .overlay {
+    .auth-overlay {
       display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.68);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .auth-overlay.show {
+      display: flex;
+    }
+
+    .auth-box {
+      width: 100%;
+      max-width: 390px;
+      background: #202020;
+      border: 1px solid #3c3c3c;
+      border-radius: 16px;
+      padding: 25px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.45);
+      position: relative;
+    }
+
+    .auth-close {
+      position: absolute;
+      top: 12px;
+      right: 14px;
+      border: none;
+      background: transparent;
+      color: #aaa;
+      font-size: 22px;
+      cursor: pointer;
+    }
+
+    .auth-box h2 {
+      margin-bottom: 7px;
+      font-size: 23px;
+    }
+
+    .auth-subtitle {
+      color: #888;
+      font-size: 13px;
+      margin-bottom: 20px;
+    }
+
+    .auth-input {
+      width: 100%;
+      padding: 12px;
+      margin-bottom: 11px;
+      border: 1px solid #414141;
+      border-radius: 9px;
+      background: #2b2b2b;
+      color: white;
+      outline: none;
+      font-size: 14px;
+    }
+
+    .auth-input:focus {
+      border-color: #666;
+    }
+
+    .auth-submit {
+      width: 100%;
+      border: none;
+      border-radius: 9px;
+      padding: 12px;
+      background: white;
+      color: #171717;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 4px;
+    }
+
+    .auth-submit:disabled {
+      opacity: .5;
+      cursor: default;
+    }
+
+    .auth-switch {
+      text-align: center;
+      color: #888;
+      font-size: 13px;
+      margin-top: 16px;
+    }
+
+    .auth-switch button {
+      border: none;
+      background: transparent;
+      color: white;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+
+    .auth-message {
+      display: none;
+      margin-bottom: 12px;
+      padding: 9px;
+      border-radius: 8px;
+      background: #302020;
+      color: #ffb4b4;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .auth-message.show {
+      display: block;
+    }
+
+    .logout-button {
+      display: none;
+      border: 1px solid #3a3a3a;
+      background: transparent;
+      color: #ddd;
+      padding: 7px 11px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    .logout-button:hover {
+      background: var(--hover);
     }
 
     @media (max-width: 700px) {
@@ -511,6 +614,65 @@
 
     <div class="overlay" id="overlay" onclick="toggleSidebar()"></div>
 
+    <!-- AUTH MODAL -->
+    <div class="auth-overlay" id="authOverlay">
+
+      <div class="auth-box">
+
+        <button class="auth-close" onclick="closeAuth()">×</button>
+
+        <h2 id="authTitle">Log in</h2>
+
+        <div class="auth-subtitle" id="authSubtitle">
+          Log in to your Chatabot account.
+        </div>
+
+        <div class="auth-message" id="authMessage"></div>
+
+        <input
+          class="auth-input"
+          id="authName"
+          type="text"
+          placeholder="Full name"
+          style="display:none;"
+        >
+
+        <input
+          class="auth-input"
+          id="authEmail"
+          type="email"
+          placeholder="Email"
+          autocomplete="email"
+        >
+
+        <input
+          class="auth-input"
+          id="authPassword"
+          type="password"
+          placeholder="Password"
+          autocomplete="current-password"
+        >
+
+        <button
+          class="auth-submit"
+          id="authSubmit"
+          onclick="submitAuth()"
+        >
+          Log in
+        </button>
+
+        <div class="auth-switch">
+          <span id="authSwitchText">Don't have an account?</span>
+
+          <button onclick="switchAuthMode()" id="authSwitchButton">
+            Sign up
+          </button>
+        </div>
+
+      </div>
+
+    </div>
+
     <!-- SIDEBAR -->
     <aside class="sidebar" id="sidebar">
 
@@ -530,14 +692,16 @@
       </div>
 
       <div class="profile">
-        <div class="avatar">U</div>
+
+        <div class="avatar" id="profileAvatar">U</div>
 
         <div class="profile-info">
-          <div class="profile-name">Guest</div>
-          <div class="profile-plan">Free plan</div>
+          <div class="profile-name" id="profileName">Guest</div>
+          <div class="profile-plan" id="profilePlan">Free plan</div>
         </div>
 
-        <button class="profile-button" onclick="loginPrompt()">⋯</button>
+        <button class="profile-button" onclick="profileAction()">⋯</button>
+
       </div>
 
     </aside>
@@ -548,21 +712,46 @@
       <header class="topbar">
 
         <div class="top-left">
-          <button class="menu-button" onclick="toggleSidebar()">☰</button>
+
+          <button
+            class="menu-button"
+            onclick="toggleSidebar()"
+          >
+            ☰
+          </button>
 
           <div class="model-name">Chatabot</div>
 
           <div class="model-badge">AI</div>
+
         </div>
 
         <div class="top-right">
-          <button class="top-button" onclick="loginPrompt()">
+
+          <button
+            class="top-button"
+            id="loginButton"
+            onclick="loginPrompt()"
+          >
             Log in
           </button>
 
-          <button class="top-button" onclick="signupPrompt()">
+          <button
+            class="top-button"
+            id="signupButton"
+            onclick="signupPrompt()"
+          >
             Sign up
           </button>
+
+          <button
+            class="logout-button"
+            id="logoutButton"
+            onclick="logoutUser()"
+          >
+            Log out
+          </button>
+
         </div>
 
       </header>
@@ -635,7 +824,31 @@
 
   </div>
 
+  <!-- SUPABASE -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
   <script>
+
+    /* =========================
+       SUPABASE
+    ========================= */
+
+    const SUPABASE_URL =
+      "https://djdiurxlkyycbodqmwpf.supabase.co";
+
+    const SUPABASE_PUBLISHABLE_KEY =
+      "PASTE_YOUR_SUPABASE_PUBLISHABLE_KEY_HERE";
+
+    const supabaseClient =
+      window.supabase.createClient(
+        SUPABASE_URL,
+        SUPABASE_PUBLISHABLE_KEY
+      );
+
+
+    /* =========================
+       ELEMENTS
+    ========================= */
 
     const input = document.getElementById("userInput");
     const messages = document.getElementById("messages");
@@ -643,11 +856,552 @@
     const chatArea = document.getElementById("chatArea");
     const uploadPreview = document.getElementById("uploadPreview");
 
+    const authOverlay = document.getElementById("authOverlay");
+    const authTitle = document.getElementById("authTitle");
+    const authSubtitle = document.getElementById("authSubtitle");
+    const authName = document.getElementById("authName");
+    const authEmail = document.getElementById("authEmail");
+    const authPassword = document.getElementById("authPassword");
+    const authSubmit = document.getElementById("authSubmit");
+    const authMessage = document.getElementById("authMessage");
+    const authSwitchText = document.getElementById("authSwitchText");
+    const authSwitchButton = document.getElementById("authSwitchButton");
+
+    const profileName = document.getElementById("profileName");
+    const profilePlan = document.getElementById("profilePlan");
+    const profileAvatar = document.getElementById("profileAvatar");
+
+    const loginButton = document.getElementById("loginButton");
+    const signupButton = document.getElementById("signupButton");
+    const logoutButton = document.getElementById("logoutButton");
+
+
+    /* =========================
+       CHAT DATA
+    ========================= */
+
     let currentChat = [];
-    let chats = JSON.parse(localStorage.getItem("chatabot_history") || "[]");
+    let chats =
+      JSON.parse(
+        localStorage.getItem("chatabot_history") || "[]"
+      );
+
     let selectedChat = null;
 
+
+    /* =========================
+       AUTH DATA
+    ========================= */
+
+    let authMode = "login";
+    let currentUser = null;
+
+
     renderHistory();
+    checkAuth();
+
+
+    /* =========================
+       AUTH CHECK
+    ========================= */
+
+    async function checkAuth() {
+
+      const {
+        data: {
+          session
+        }
+      } = await supabaseClient.auth.getSession();
+
+      if (session && session.user) {
+
+        currentUser = session.user;
+
+        await loadUserProfile();
+
+      } else {
+
+        currentUser = null;
+
+        updateGuestUI();
+
+      }
+
+    }
+
+
+    /* =========================
+       AUTH STATE LISTENER
+    ========================= */
+
+    supabaseClient.auth.onAuthStateChange(
+      async (event, session) => {
+
+        if (session && session.user) {
+
+          currentUser = session.user;
+
+          await loadUserProfile();
+
+        } else {
+
+          currentUser = null;
+
+          updateGuestUI();
+
+        }
+
+      }
+    );
+
+
+    /* =========================
+       LOAD PROFILE
+    ========================= */
+
+    async function loadUserProfile() {
+
+      if (!currentUser) return;
+
+      const {
+        data,
+        error
+      } = await supabaseClient
+        .from("profiles")
+        .select("*")
+        .eq("user_id", currentUser.id)
+        .maybeSingle();
+
+      if (error) {
+
+        console.error(
+          "Profile load error:",
+          error
+        );
+
+        updateUserUI(
+          currentUser.user_metadata?.full_name ||
+          currentUser.email ||
+          "User",
+          "Free plan"
+        );
+
+        return;
+      }
+
+      if (data) {
+
+        updateUserUI(
+          data.full_name ||
+          currentUser.email ||
+          "User",
+          data.plan || "free"
+        );
+
+      } else {
+
+        await createUserProfile();
+
+      }
+
+    }
+
+
+    /* =========================
+       CREATE PROFILE
+    ========================= */
+
+    async function createUserProfile() {
+
+      if (!currentUser) return;
+
+      const fullName =
+        currentUser.user_metadata?.full_name ||
+        currentUser.email?.split("@")[0] ||
+        "User";
+
+      const {
+        error
+      } = await supabaseClient
+        .from("profiles")
+        .insert({
+          user_id: currentUser.id,
+          email: currentUser.email,
+          full_name: fullName,
+          plan: "free"
+        });
+
+      if (error) {
+
+        console.error(
+          "Profile creation error:",
+          error
+        );
+
+        updateUserUI(
+          fullName,
+          "Free plan"
+        );
+
+        return;
+      }
+
+      updateUserUI(
+        fullName,
+        "Free plan"
+      );
+
+    }
+
+
+    /* =========================
+       UPDATE USER UI
+    ========================= */
+
+    function updateUserUI(name, plan) {
+
+      profileName.textContent = name;
+
+      profilePlan.textContent =
+        plan === "free"
+          ? "Free plan"
+          : plan;
+
+      profileAvatar.textContent =
+        name.charAt(0).toUpperCase();
+
+      loginButton.style.display = "none";
+      signupButton.style.display = "none";
+      logoutButton.style.display = "block";
+
+    }
+
+
+    /* =========================
+       GUEST UI
+    ========================= */
+
+    function updateGuestUI() {
+
+      profileName.textContent = "Guest";
+      profilePlan.textContent = "Free plan";
+      profileAvatar.textContent = "U";
+
+      loginButton.style.display = "block";
+      signupButton.style.display = "block";
+      logoutButton.style.display = "none";
+
+    }
+
+
+    /* =========================
+       OPEN LOGIN
+    ========================= */
+
+    function loginPrompt() {
+
+      authMode = "login";
+
+      authTitle.textContent = "Log in";
+
+      authSubtitle.textContent =
+        "Log in to your Chatabot account.";
+
+      authName.style.display = "none";
+
+      authSubmit.textContent = "Log in";
+
+      authSwitchText.textContent =
+        "Don't have an account?";
+
+      authSwitchButton.textContent =
+        "Sign up";
+
+      clearAuthMessage();
+
+      authEmail.value = "";
+      authPassword.value = "";
+
+      authOverlay.classList.add("show");
+
+    }
+
+
+    /* =========================
+       OPEN SIGNUP
+    ========================= */
+
+    function signupPrompt() {
+
+      authMode = "signup";
+
+      authTitle.textContent = "Create account";
+
+      authSubtitle.textContent =
+        "Create your free Chatabot account.";
+
+      authName.style.display = "block";
+
+      authSubmit.textContent = "Sign up";
+
+      authSwitchText.textContent =
+        "Already have an account?";
+
+      authSwitchButton.textContent =
+        "Log in";
+
+      clearAuthMessage();
+
+      authName.value = "";
+      authEmail.value = "";
+      authPassword.value = "";
+
+      authOverlay.classList.add("show");
+
+    }
+
+
+    /* =========================
+       SWITCH AUTH MODE
+    ========================= */
+
+    function switchAuthMode() {
+
+      if (authMode === "login") {
+
+        signupPrompt();
+
+      } else {
+
+        loginPrompt();
+
+      }
+
+    }
+
+
+    /* =========================
+       CLOSE AUTH
+    ========================= */
+
+    function closeAuth() {
+
+      authOverlay.classList.remove("show");
+
+      clearAuthMessage();
+
+    }
+
+
+    /* =========================
+       AUTH MESSAGE
+    ========================= */
+
+    function showAuthMessage(message) {
+
+      authMessage.textContent = message;
+
+      authMessage.classList.add("show");
+
+    }
+
+
+    function clearAuthMessage() {
+
+      authMessage.textContent = "";
+
+      authMessage.classList.remove("show");
+
+    }
+
+
+    /* =========================
+       SUBMIT AUTH
+    ========================= */
+
+    async function submitAuth() {
+
+      clearAuthMessage();
+
+      const email =
+        authEmail.value.trim();
+
+      const password =
+        authPassword.value;
+
+      if (!email || !password) {
+
+        showAuthMessage(
+          "Please enter your email and password."
+        );
+
+        return;
+
+      }
+
+      if (authMode === "signup") {
+
+        const fullName =
+          authName.value.trim();
+
+        if (!fullName) {
+
+          showAuthMessage(
+            "Please enter your full name."
+          );
+
+          return;
+
+        }
+
+        if (password.length < 6) {
+
+          showAuthMessage(
+            "Password must be at least 6 characters."
+          );
+
+          return;
+
+        }
+
+        authSubmit.disabled = true;
+        authSubmit.textContent = "Creating...";
+
+        const {
+          data,
+          error
+        } = await supabaseClient.auth.signUp({
+
+          email: email,
+
+          password: password,
+
+          options: {
+            data: {
+              full_name: fullName
+            }
+          }
+
+        });
+
+        authSubmit.disabled = false;
+        authSubmit.textContent = "Sign up";
+
+        if (error) {
+
+          showAuthMessage(error.message);
+
+          return;
+
+        }
+
+        if (data.user && !data.session) {
+
+          showAuthMessage(
+            "Account created. Please check your email to confirm your account."
+          );
+
+          return;
+
+        }
+
+        if (data.session) {
+
+          currentUser = data.user;
+
+          await createUserProfile();
+
+          closeAuth();
+
+        }
+
+        return;
+
+      }
+
+
+      /* LOGIN */
+
+      authSubmit.disabled = true;
+      authSubmit.textContent = "Logging in...";
+
+      const {
+        data,
+        error
+      } = await supabaseClient.auth.signInWithPassword({
+
+        email: email,
+
+        password: password
+
+      });
+
+      authSubmit.disabled = false;
+      authSubmit.textContent = "Log in";
+
+      if (error) {
+
+        showAuthMessage(error.message);
+
+        return;
+
+      }
+
+      if (data.user) {
+
+        currentUser = data.user;
+
+        await loadUserProfile();
+
+        closeAuth();
+
+      }
+
+    }
+
+
+    /* =========================
+       LOGOUT
+    ========================= */
+
+    async function logoutUser() {
+
+      const {
+        error
+      } = await supabaseClient.auth.signOut();
+
+      if (error) {
+
+        alert(error.message);
+
+        return;
+
+      }
+
+      currentUser = null;
+
+      updateGuestUI();
+
+    }
+
+
+    /* =========================
+       PROFILE BUTTON
+    ========================= */
+
+    function profileAction() {
+
+      if (currentUser) {
+
+        logoutUser();
+
+      } else {
+
+        loginPrompt();
+
+      }
+
+    }
 
 
     /* =========================
@@ -656,13 +1410,17 @@
 
     function sendMessage() {
 
-      const text = input.value.trim();
+      const text =
+        input.value.trim();
 
       if (!text) return;
 
       removeWelcome();
 
-      addMessage(text, "user");
+      addMessage(
+        text,
+        "user"
+      );
 
       currentChat.push({
         role: "user",
@@ -670,6 +1428,7 @@
       });
 
       input.value = "";
+
       resizeTextarea();
 
       saveCurrentChat();
@@ -681,7 +1440,10 @@
           "Your message was received successfully.\n\n" +
           "The AI backend will be connected in the next step.";
 
-        addMessage(reply, "bot");
+        addMessage(
+          reply,
+          "bot"
+        );
 
         currentChat.push({
           role: "bot",
@@ -701,28 +1463,49 @@
 
     function addMessage(text, type) {
 
-      const message = document.createElement("div");
-      message.className = "message";
+      const message =
+        document.createElement("div");
 
-      const avatar = document.createElement("div");
+      message.className =
+        "message";
+
+      const avatar =
+        document.createElement("div");
 
       avatar.className =
         "message-avatar " +
-        (type === "user" ? "user-avatar" : "bot-avatar");
+        (type === "user"
+          ? "user-avatar"
+          : "bot-avatar");
 
       avatar.textContent =
-        type === "user" ? "U" : "C";
+        type === "user"
+          ? "U"
+          : "C";
 
-      const content = document.createElement("div");
-      content.className = "message-content";
-      content.textContent = text;
+      const content =
+        document.createElement("div");
 
-      message.appendChild(avatar);
-      message.appendChild(content);
+      content.className =
+        "message-content";
 
-      messages.appendChild(message);
+      content.textContent =
+        text;
 
-      chatArea.scrollTop = chatArea.scrollHeight;
+      message.appendChild(
+        avatar
+      );
+
+      message.appendChild(
+        content
+      );
+
+      messages.appendChild(
+        message
+      );
+
+      chatArea.scrollTop =
+        chatArea.scrollHeight;
 
     }
 
@@ -734,21 +1517,30 @@
     function newChat() {
 
       if (currentChat.length > 0) {
+
         saveCurrentChat();
+
       }
 
       currentChat = [];
+
       selectedChat = null;
 
       showWelcome();
 
       input.value = "";
+
       resizeTextarea();
 
-      uploadPreview.style.display = "none";
-      uploadPreview.textContent = "";
+      uploadPreview.style.display =
+        "none";
 
-      document.getElementById("fileInput").value = "";
+      uploadPreview.textContent =
+        "";
+
+      document.getElementById(
+        "fileInput"
+      ).value = "";
 
       closeMobileSidebar();
 
@@ -766,11 +1558,16 @@
       if (!currentChat.length) return;
 
       const firstUserMessage =
-        currentChat.find(m => m.role === "user");
+        currentChat.find(
+          m => m.role === "user"
+        );
 
       const title =
         firstUserMessage
-          ? firstUserMessage.content.substring(0, 45)
+          ? firstUserMessage.content.substring(
+              0,
+              45
+            )
           : "New chat";
 
       if (selectedChat !== null) {
@@ -818,21 +1615,35 @@
 
       }
 
-      chats.forEach((chat, index) => {
+      chats.forEach(
+        (chat, index) => {
 
-        const item = document.createElement("div");
+          const item =
+            document.createElement(
+              "div"
+            );
 
-        item.className =
-          "history-item " +
-          (index === selectedChat ? "active" : "");
+          item.className =
+            "history-item " +
+            (
+              index === selectedChat
+                ? "active"
+                : ""
+            );
 
-        item.textContent = chat.title || "New chat";
+          item.textContent =
+            chat.title ||
+            "New chat";
 
-        item.onclick = () => loadChat(index);
+          item.onclick =
+            () => loadChat(index);
 
-        history.appendChild(item);
+          history.appendChild(
+            item
+          );
 
-      });
+        }
+      );
 
     }
 
@@ -843,24 +1654,32 @@
 
     function loadChat(index) {
 
-      const chat = chats[index];
+      const chat =
+        chats[index];
 
       if (!chat) return;
 
-      selectedChat = index;
+      selectedChat =
+        index;
 
-      currentChat = [...chat.messages];
+      currentChat =
+        [...chat.messages];
 
-      messages.innerHTML = "";
+      messages.innerHTML =
+        "";
 
-      currentChat.forEach(message => {
+      currentChat.forEach(
+        message => {
 
-        addMessage(
-          message.content,
-          message.role === "user" ? "user" : "bot"
-        );
+          addMessage(
+            message.content,
+            message.role === "user"
+              ? "user"
+              : "bot"
+          );
 
-      });
+        }
+      );
 
       renderHistory();
 
@@ -875,22 +1694,35 @@
 
     function removeWelcome() {
 
-      const welcome = document.getElementById("welcome");
+      const welcome =
+        document.getElementById(
+          "welcome"
+        );
 
       if (welcome) {
+
         welcome.remove();
+
       }
 
     }
 
+
     function showWelcome() {
 
-      messages.innerHTML = "";
+      messages.innerHTML =
+        "";
 
-      const welcome = document.createElement("div");
+      const welcome =
+        document.createElement(
+          "div"
+        );
 
-      welcome.className = "welcome";
-      welcome.id = "welcome";
+      welcome.className =
+        "welcome";
+
+      welcome.id =
+        "welcome";
 
       welcome.innerHTML = `
         <div class="welcome-logo">C</div>
@@ -898,7 +1730,9 @@
         <p>Ask Chatabot anything.</p>
       `;
 
-      messages.appendChild(welcome);
+      messages.appendChild(
+        welcome
+      );
 
     }
 
@@ -929,10 +1763,14 @@
 
     function resizeTextarea() {
 
-      input.style.height = "auto";
+      input.style.height =
+        "auto";
 
       input.style.height =
-        Math.min(input.scrollHeight, 150) + "px";
+        Math.min(
+          input.scrollHeight,
+          150
+        ) + "px";
 
     }
 
@@ -943,14 +1781,18 @@
 
     function handleImageUpload(event) {
 
-      const file = event.target.files[0];
+      const file =
+        event.target.files[0];
 
       if (!file) return;
 
-      uploadPreview.style.display = "block";
+      uploadPreview.style.display =
+        "block";
 
       uploadPreview.textContent =
-        "📎 " + file.name + " selected";
+        "📎 " +
+        file.name +
+        " selected";
 
     }
 
@@ -984,29 +1826,7 @@
 
     }
 
-
-    /* =========================
-       ACCOUNT PLACEHOLDERS
-    ========================= */
-
-    function loginPrompt() {
-
-      alert(
-        "Login / Signup system will be connected in the next step."
-      );
-
-    }
-
-    function signupPrompt() {
-
-      alert(
-        "Signup system will be connected in the next step."
-      );
-
-    }
-
   </script>
 
 </body>
 </html>
-```
