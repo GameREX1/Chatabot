@@ -918,6 +918,60 @@
       display: none;
     }
 
+    .selected-context-box {
+      max-width: 900px;
+      margin: 0 auto 8px;
+      display: none;
+      align-items: flex-start;
+      gap: 10px;
+      background: #111;
+      border: 1px solid #303030;
+      border-radius: 12px;
+      padding: 10px 12px;
+    }
+
+    .selected-context-content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .selected-context-title {
+      color: #aaa;
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+
+    .selected-context-text {
+      color: #eee;
+      font-size: 14px;
+      line-height: 1.4;
+      white-space: pre-wrap;
+      max-height: 90px;
+      overflow: auto;
+    }
+
+    .selected-context-close {
+      border: none;
+      background: transparent;
+      color: #888;
+      font-size: 22px;
+      cursor: pointer;
+      line-height: 1;
+      padding: 0 2px;
+    }
+
+    .selected-context-close:hover {
+      color: white;
+    }
+
+    .editing-indicator {
+      max-width: 900px;
+      margin: 0 auto 8px;
+      display: none;
+      color: #aaa;
+      font-size: 12px;
+    }
+
     .upload-preview {
       max-width: 900px;
       margin: 0 auto 7px;
@@ -964,17 +1018,6 @@
       background: #272727;
       color: white;
     }
-
-    .selected-context-box {
-      width: 100%; display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;
-      margin-bottom: 8px; padding: 9px 11px; border: 1px solid #303030; border-left: 3px solid #777;
-      border-radius: 10px; background: #111; box-sizing: border-box;
-    }
-    .selected-context-content { min-width: 0; }
-    .selected-context-title { color: #aaa; font-size: 11px; font-weight: 700; margin-bottom: 3px; }
-    .selected-context-text { color: #ddd; font-size: 13px; line-height: 1.35; white-space: pre-wrap; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; }
-    .selected-context-close { flex: 0 0 auto; border: none; background: transparent; color: #888; font-size: 19px; line-height: 1; cursor: pointer; padding: 0 2px; }
-    .selected-context-close:hover { color: #fff; }
 
     /* =========================
        AUTH MODAL
@@ -1836,14 +1879,6 @@
             ＋
           </button>
 
-          <div id="selectedContextBox" class="selected-context-box" style="display:none;">
-            <div class="selected-context-content">
-              <div class="selected-context-title">Selected message</div>
-              <div id="selectedContextText" class="selected-context-text"></div>
-            </div>
-            <button type="button" class="selected-context-close" onclick="clearSelectedContext()" title="Remove selected message">×</button>
-          </div>
-
           <textarea
             id="userInput"
             placeholder="Message Chatabot..."
@@ -1964,6 +1999,15 @@
     const uploadPreview =
       document.getElementById("uploadPreview");
 
+    const selectedContextBox =
+      document.getElementById("selectedContextBox");
+
+    const selectedContextText =
+      document.getElementById("selectedContextText");
+
+    const editingIndicator =
+      document.getElementById("editingIndicator");
+
     const sendButton =
       document.getElementById("sendButton");
 
@@ -2026,12 +2070,6 @@
 
     const selectionMenu =
       document.getElementById("selectionMenu");
-
-    const selectedContextBox =
-      document.getElementById("selectedContextBox");
-
-    const selectedContextText =
-      document.getElementById("selectedContextText");
 
 
     /* =========================
@@ -3013,400 +3051,149 @@
 
       if (aiBusy) return;
 
-      const text =
-        input.value.trim();
+      const text = input.value.trim();
+      const context = selectedContext.trim();
 
-      const contextForMessage =
-        selectedContext.trim();
+      if (!text && !selectedImageFile) return;
 
-      if (
-        !text &&
-        !selectedImageFile
-      ) {
-        return;
-      }
+      const isEditing = editingMessageIndex !== null;
 
-      const isEditing =
-        editingMessageIndex !== null;
+      if (selectedImageFile && !canUseImageFeature()) return;
 
-      /* Editing an existing message must replace it,
-         not create another user message. */
-      if (
-        isEditing &&
-        selectedImageFile
-      ) {
-        alert("Please remove the image before editing a message.");
-        return;
-      }
-
-      if (
-        !isEditing &&
-        !canSendMessage()
-      ) {
-        return;
-      }
-
-      if (
-        selectedImageFile &&
-        !canUseImageFeature()
-      ) {
-        return;
-      }
-
-      /* IMAGE UPLOAD */
       if (selectedImageFile) {
 
         if (!currentUser && !isAdminUser()) {
-
           signupPrompt();
-
           showAuthMessage(
             "Please create a free account to upload and analyze images."
           );
-
           return;
         }
 
-        await sendImageMessage(
-          text
-        );
-
+        await sendImageMessage(text);
         return;
       }
 
-      /* EDIT EXISTING MESSAGE */
-      if (isEditing) {
-
-        const editIndex =
-          editingMessageIndex;
-
-        const message =
-          currentChat[editIndex];
-
-        if (
-          !message ||
-          message.role !== "user"
-        ) {
-          editingMessageIndex = null;
-          input.value = "";
-          resizeTextarea();
-          return;
-        }
-
-        /* Remove the old assistant reply and every
-           message after the edited user message. */
-        currentChat =
-          currentChat.slice(
-            0,
-            editIndex + 1
-          );
-
-        currentChat[editIndex] = {
-          ...message,
-          content: text
-        };
-
-        editingMessageIndex =
-          null;
-
-        removeWelcome();
-        input.value = "";
-        resizeTextarea();
-
-        renderCurrentChat();
-        saveCurrentChat();
-
-        aiBusy = true;
-        sendButton.disabled = true;
-
-        const typingMessage =
-          addTypingMessage();
-
-        try {
-
-          const response =
-            await fetch(
-              AI_API_URL,
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type":
-                    "application/json"
-                },
-                body: JSON.stringify({
-                  messages:
-                    currentChat.map(
-                      message => ({
-                        role:
-                          message.role ===
-                          "bot"
-                            ? "assistant"
-                            : message.role,
-                        content:
-                          message.selectedContext
-                            ? `Selected message:\n${message.selectedContext}\n\nUser message:\n${message.content}`
-                            : message.content
-                      })
-                    )
-                })
-              }
-            );
-
-          let data = null;
-
-          try {
-            data =
-              await response.json();
-          } catch (e) {
-            data = null;
-          }
-
-          if (!response.ok) {
-            throw new Error(
-              data?.details ||
-              data?.error ||
-              "AI request failed."
-            );
-          }
-
-          const reply =
-            data?.response ||
-            data?.result?.response ||
-            data?.text ||
-            data?.result ||
-            "Sorry, I couldn't generate a response.";
-
-          typingMessage.remove();
-
-          addMessage(
-            String(reply),
-            "bot",
-            currentChat.length
-          );
-
-          currentChat.push({
-            role: "bot",
-            content: String(reply)
-          });
-
-          saveCurrentChat();
-
-        } catch (error) {
-
-          console.error(
-            "AI edit error:",
-            error
-          );
-
-          typingMessage.remove();
-
-          const errorReply =
-            "Sorry, I couldn't connect to the AI right now. Please try again.";
-
-          addMessage(
-            errorReply,
-            "bot",
-            currentChat.length
-          );
-
-          currentChat.push({
-            role: "bot",
-            content: errorReply
-          });
-
-          saveCurrentChat();
-
-        } finally {
-
-          aiBusy = false;
-          sendButton.disabled = false;
-          input.focus();
-
-        }
-
-        return;
-      }
-
-      /* NORMAL / IMAGE GENERATION */
+      if (!canSendMessage()) return;
 
       removeWelcome();
 
-      const userIndex =
-        currentChat.length;
+      const userIndex = currentChat.length;
+      const messageContent = text;
 
       addMessage(
-        text,
+        messageContent,
         "user",
         userIndex
       );
 
       currentChat.push({
         role: "user",
-        content: text,
-        ...(contextForMessage ? { selectedContext: contextForMessage } : {})
+        content: messageContent,
+        ...(context ? { selectedContext: context } : {}),
+        ...(isEditing ? { editedFrom: editingMessageIndex } : {})
       });
 
+      editingMessageIndex = null;
+
+      if (editingIndicator) {
+        editingIndicator.style.display = "none";
+      }
+
       clearSelectedContext();
+
       input.value = "";
       resizeTextarea();
-
       saveCurrentChat();
 
       aiBusy = true;
+      sendButton.disabled = true;
 
-      sendButton.disabled =
-        true;
-
-      const typingMessage =
-        addTypingMessage();
+      const typingMessage = addTypingMessage();
 
       try {
 
-        /* IMAGE GENERATION */
+        if (isImageRequest(text)) {
 
-        if (
-          isImageRequest(text)
-        ) {
-
-          if (
-            !currentUser &&
-            !isAdminUser()
-          ) {
-
+          if (!currentUser && !isAdminUser()) {
             typingMessage.remove();
-
             currentChat.pop();
-
             renderCurrentChat();
-
             signupPrompt();
-
             showAuthMessage(
               "Please create a free account before generating images."
             );
-
             return;
           }
 
-          if (
-            !canUseImageFeature()
-          ) {
-
+          if (!canUseImageFeature()) {
             typingMessage.remove();
-
             currentChat.pop();
-
             renderCurrentChat();
-
             return;
           }
 
-          const prompt =
-            cleanImagePrompt(text);
+          const prompt = cleanImagePrompt(text);
 
-          const response =
-            await fetch(
-              IMAGE_API_URL,
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type":
-                    "application/json"
-                },
-                body: JSON.stringify({
-                  prompt: prompt
-                })
-              }
-            );
+          const response = await fetch(
+            IMAGE_API_URL,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ prompt })
+            }
+          );
 
           let data = null;
-
-          try {
-            data =
-              await response.json();
-          } catch (e) {
-            data = null;
-          }
+          try { data = await response.json(); } catch (e) { data = null; }
 
           if (!response.ok) {
             throw new Error(
-              data?.details ||
-              data?.error ||
-              "Image generation failed."
+              data?.details || data?.error || "Image generation failed."
             );
           }
 
           if (!data?.image) {
-            throw new Error(
-              "The AI did not return an image."
-            );
+            throw new Error("The AI did not return an image.");
           }
 
           recordImageUsage();
-
           typingMessage.remove();
 
-          addImageMessage(
-            data.image,
-            prompt
-          );
+          addImageMessage(data.image, prompt);
 
           currentChat.push({
             role: "bot",
-            content:
-              "[Generated image]\n" +
-              prompt,
-            image:
-              data.image
+            content: "[Generated image]\n" + prompt,
+            image: data.image
           });
 
           saveCurrentChat();
-
           return;
         }
 
-        /* NORMAL CHAT */
-
-        const response =
-          await fetch(
-            AI_API_URL,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type":
-                  "application/json"
-              },
-              body: JSON.stringify({
-                messages:
-                  currentChat.map(
-                    message => ({
-                      role:
-                        message.role ===
-                        "bot"
-                          ? "assistant"
-                          : message.role,
-                      content:
-                        message.content
-                    })
-                  )
-              })
-            }
-          );
+        const response = await fetch(
+          AI_API_URL,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              messages: currentChat.map(message => ({
+                role: message.role === "bot" ? "assistant" : message.role,
+                content: message.selectedContext
+                  ? `Selected message:\n${message.selectedContext}\n\nUser message:\n${message.content}`
+                  : message.content
+              }))
+            })
+          }
+        );
 
         let data = null;
-
-        try {
-          data =
-            await response.json();
-        } catch (e) {
-          data = null;
-        }
+        try { data = await response.json(); } catch (e) { data = null; }
 
         if (!response.ok) {
           throw new Error(
-            data?.details ||
-            data?.error ||
-            "AI request failed."
+            data?.details || data?.error || "AI request failed."
           );
         }
 
@@ -3419,14 +3206,7 @@
 
         typingMessage.remove();
 
-        const botIndex =
-          currentChat.length;
-
-        addMessage(
-          String(reply),
-          "bot",
-          botIndex
-        );
+        addMessage(String(reply), "bot", currentChat.length);
 
         currentChat.push({
           role: "bot",
@@ -3437,28 +3217,26 @@
 
       } catch (error) {
 
-        console.error(
-          "AI error:",
-          error
-        );
+        console.error("AI error:", error);
 
         typingMessage.remove();
 
         const errorReply =
           "Sorry, I couldn't connect to the AI right now. Please try again.";
 
-        addMessage(
-          errorReply,
-          "bot"
-        );
+        addMessage(errorReply, "bot", currentChat.length);
+
+        currentChat.push({
+          role: "bot",
+          content: errorReply
+        });
+
+        saveCurrentChat();
 
       } finally {
 
         aiBusy = false;
-
-        sendButton.disabled =
-          false;
-
+        sendButton.disabled = false;
         input.focus();
 
       }
@@ -3477,102 +3255,95 @@
       if (aiBusy) return;
 
       aiBusy = true;
+      sendButton.disabled = true;
 
-      sendButton.disabled =
-        true;
-
-      const file =
-        selectedImageFile;
+      const file = selectedImageFile;
 
       try {
 
-        const imageData =
-          await fileToDataURL(file);
+        const imageData = await compressImageForVision(file);
 
         removeWelcome();
 
-        addUserImageMessage(
-          imageData,
-          text,
-          file.name
-        );
+        addUserImageMessage(imageData, text, file.name);
 
         currentChat.push({
           role: "user",
-          content:
-            text ||
-            "Please analyze this image.",
+          content: text || "Please analyze this image.",
           imageUpload: true,
           imageName: file.name
         });
 
         input.value = "";
-
         resizeTextarea();
-
         clearSelectedImage();
-
+        clearSelectedContext();
         saveCurrentChat();
 
-        const typingMessage =
-          addTypingMessage();
+        const typingMessage = addTypingMessage();
+        const prompt = text || "Please analyze this image and tell me what you see.";
 
-        const response =
-          await fetch(
-            VISION_API_URL,
+        let response = await fetch(
+          VISION_API_URL,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              prompt,
+              image: imageData,
+              imageData,
+              mimeType: "image/jpeg"
+            })
+          }
+        );
+
+        let data = null;
+        try { data = await response.json(); } catch (e) { data = null; }
+
+        /* If /api/vision is unavailable, try the normal chat endpoint
+           with a multimodal message. */
+        if (!response.ok || !data) {
+          response = await fetch(
+            AI_API_URL,
             {
               method: "POST",
-
-              headers: {
-                "Content-Type":
-                  "application/json"
-              },
-
+              headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                prompt: text || "Please analyze this image and tell me what you see.",
-                image: imageData,
-                imageData: imageData,
-                mimeType: file.type || "image/jpeg"
+                messages: [
+                  {
+                    role: "user",
+                    content: [
+                      { type: "text", text: prompt },
+                      { type: "image_url", image_url: { url: imageData } }
+                    ]
+                  }
+                ]
               })
             }
           );
 
-        let data = null;
-
-        try {
-          data =
-            await response.json();
-        } catch (e) {
-          data = null;
+          try { data = await response.json(); } catch (e) { data = null; }
         }
 
         if (!response.ok) {
-
           throw new Error(
-            data?.details ||
-            data?.error ||
-            "Image analysis failed."
+            data?.details || data?.error || "Image analysis failed."
           );
-
         }
 
         const reply =
           data?.response ||
+          data?.analysis ||
           data?.result?.response ||
+          data?.result?.analysis ||
+          data?.message ||
           data?.text ||
           data?.result ||
-          "Sorry, I couldn't analyze this image.";
+          "I received the image, but the vision model did not return an analysis.";
 
         typingMessage.remove();
 
-        const botIndex =
-          currentChat.length;
-
-        addMessage(
-          String(reply),
-          "bot",
-          botIndex
-        );
+        addMessage(String(reply), "bot", currentChat.length);
 
         currentChat.push({
           role: "bot",
@@ -3580,42 +3351,73 @@
         });
 
         recordImageUsage();
-
         saveCurrentChat();
 
       } catch (error) {
 
-        console.error(
-          "Vision error:",
-          error
-        );
+        console.error("Vision error:", error);
 
-        const typing =
-          document.querySelector(
-            ".typing"
-          );
+        document.querySelectorAll(".typing").forEach(typing => {
+          typing.closest(".message")?.remove();
+        });
 
-        if (typing) {
-          typing.closest(
-            ".message"
-          )?.remove();
-        }
+        const errorReply =
+          "Image analysis is not available right now. Please check the /api/vision backend.";
 
-        addMessage(
-          "Sorry, I couldn't analyze that image right now.",
-          "bot"
-        );
+        addMessage(errorReply, "bot", currentChat.length);
+
+        currentChat.push({
+          role: "bot",
+          content: errorReply
+        });
+
+        saveCurrentChat();
 
       } finally {
 
         aiBusy = false;
-
-        sendButton.disabled =
-          false;
-
+        sendButton.disabled = false;
         input.focus();
 
       }
+
+    }
+
+
+    function compressImageForVision(file) {
+
+      return new Promise((resolve, reject) => {
+
+        const reader = new FileReader();
+
+        reader.onload = () => {
+
+          const img = new Image();
+
+          img.onload = () => {
+
+            const maxSize = 1600;
+            const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+            const canvas = document.createElement("canvas");
+            canvas.width = Math.max(1, Math.round(img.width * scale));
+            canvas.height = Math.max(1, Math.round(img.height * scale));
+
+            const ctx = canvas.getContext("2d");
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+            resolve(canvas.toDataURL("image/jpeg", 0.82));
+
+          };
+
+          img.onerror = reject;
+          img.src = reader.result;
+
+        };
+
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+
+      });
 
     }
 
@@ -4070,18 +3872,16 @@
         return;
       }
 
-      editingMessageIndex =
-        index;
+      editingMessageIndex = index;
 
-      clearSelectedContext();
-
-      input.value =
-        message.content || "";
-
+      input.value = message.content || "";
       resizeTextarea();
 
-      input.focus();
+      if (editingIndicator) {
+        editingIndicator.style.display = "block";
+      }
 
+      input.focus();
       input.setSelectionRange(
         input.value.length,
         input.value.length
@@ -4646,25 +4446,35 @@
       if (!selectedText) return;
 
       selectedContext = selectedText;
-      selectedContextText.textContent = selectedContext;
-      selectedContextBox.style.display = "flex";
+
+      if (selectedContextBox && selectedContextText) {
+        selectedContextText.textContent = selectedContext;
+        selectedContextBox.style.display = "flex";
+      }
+
       input.value = "";
       resizeTextarea();
       input.focus();
-      selectionMenu.classList.remove("show");
 
-      const selection = window.getSelection();
-      if (selection) selection.removeAllRanges();
+      selectionMenu.classList.remove("show");
+      window.getSelection()?.removeAllRanges();
       selectedText = "";
 
     }
 
 
     function clearSelectedContext() {
+
       selectedContext = "";
-      selectedContextText.textContent = "";
-      selectedContextBox.style.display = "none";
-      input.focus();
+
+      if (selectedContextBox) {
+        selectedContextBox.style.display = "none";
+      }
+
+      if (selectedContextText) {
+        selectedContextText.textContent = "";
+      }
+
     }
 
 
@@ -5531,6 +5341,8 @@
 
       editingMessageIndex =
         null;
+      clearSelectedContext();
+      if (editingIndicator) editingIndicator.style.display = "none";
 
       renderCurrentChat();
 
