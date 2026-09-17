@@ -918,16 +918,6 @@
       display: none;
     }
 
-    .selection-preview { display:none; max-width:900px; margin:0 auto 7px; background:#0b0b0b; border:1px solid #272727; border-radius:10px; padding:9px 11px; color:#aaa; font-size:13px; position:relative; }
-    .selection-preview.show { display:block; }
-    .selection-preview-label { color:#ddd; font-size:12px; font-weight:600; margin-bottom:5px; }
-    .selection-preview-text { color:#888; white-space:pre-wrap; word-break:break-word; padding-right:28px; max-height:80px; overflow-y:auto; }
-    .selection-preview-close { position:absolute; top:7px; right:8px; width:24px; height:24px; border:none; background:transparent; color:#777; cursor:pointer; font-size:18px; border-radius:6px; }
-    .selection-preview-close:hover { color:white; background:#1b1b1b; }
-    .editing-indicator { display:none; max-width:900px; margin:0 auto 7px; padding:7px 10px; background:#101010; border:1px solid #292929; border-radius:9px; color:#aaa; font-size:12px; align-items:center; justify-content:space-between; }
-    .editing-indicator.show { display:flex; }
-    .editing-indicator button { border:1px solid #303030; background:#151515; color:#bbb; border-radius:6px; padding:4px 8px; cursor:pointer; font-size:11px; }
-
     .upload-preview {
       max-width: 900px;
       margin: 0 auto 7px;
@@ -1813,17 +1803,6 @@
 
       <div class="input-wrapper">
 
-        <div class="selection-preview" id="selectionPreview">
-          <div class="selection-preview-label">Ask Chatabot about this</div>
-          <div class="selection-preview-text" id="selectionPreviewText"></div>
-          <button class="selection-preview-close" onclick="clearSelectedText()" title="Close">×</button>
-        </div>
-
-        <div class="editing-indicator" id="editingIndicator">
-          <span>Editing message</span>
-          <button onclick="cancelEdit()">Cancel</button>
-        </div>
-
         <div
           class="upload-preview"
           id="uploadPreview"
@@ -1966,15 +1945,6 @@
     const uploadPreview =
       document.getElementById("uploadPreview");
 
-    const selectionPreview =
-      document.getElementById("selectionPreview");
-
-    const selectionPreviewText =
-      document.getElementById("selectionPreviewText");
-
-    const editingIndicator =
-      document.getElementById("editingIndicator");
-
     const sendButton =
       document.getElementById("sendButton");
 
@@ -2073,7 +2043,6 @@
 
 
     renderHistory();
-    updateEditingIndicator();
     checkAuth();
 
 
@@ -3014,133 +2983,454 @@
     ========================= */
 
     async function sendMessage() {
-      if (aiBusy) return;
-      const text = input.value.trim();
 
-      if (editingMessageIndex !== null) {
-        if (!text) return;
-        await submitEditedMessage(text);
+      if (aiBusy) return;
+
+      const text =
+        input.value.trim();
+
+      if (
+        !text &&
+        !selectedImageFile
+      ) {
         return;
       }
 
-      if (!text && !selectedImageFile) return;
-      if (!canSendMessage()) return;
-      if (selectedImageFile && !canUseImageFeature()) return;
+      const isEditing =
+        editingMessageIndex !== null;
 
+      /* Editing an existing message must replace it,
+         not create another user message. */
+      if (
+        isEditing &&
+        selectedImageFile
+      ) {
+        alert("Please remove the image before editing a message.");
+        return;
+      }
+
+      if (
+        !isEditing &&
+        !canSendMessage()
+      ) {
+        return;
+      }
+
+      if (
+        selectedImageFile &&
+        !canUseImageFeature()
+      ) {
+        return;
+      }
+
+      /* IMAGE UPLOAD */
       if (selectedImageFile) {
+
         if (!currentUser && !isAdminUser()) {
+
           signupPrompt();
-          showAuthMessage("Please create a free account to upload and analyze images.");
+
+          showAuthMessage(
+            "Please create a free account to upload and analyze images."
+          );
+
           return;
         }
-        await sendImageMessage(text);
+
+        await sendImageMessage(
+          text
+        );
+
         return;
       }
 
-      removeWelcome();
-      const userIndex = currentChat.length;
-      addMessage(text, "user", userIndex);
+      /* EDIT EXISTING MESSAGE */
+      if (isEditing) {
 
-      const userMessage = { role:"user", content:text };
-      if (selectedText) userMessage.selectionContext = selectedText;
-      currentChat.push(userMessage);
+        const editIndex =
+          editingMessageIndex;
+
+        const message =
+          currentChat[editIndex];
+
+        if (
+          !message ||
+          message.role !== "user"
+        ) {
+          editingMessageIndex = null;
+          input.value = "";
+          resizeTextarea();
+          return;
+        }
+
+        /* Remove the old assistant reply and every
+           message after the edited user message. */
+        currentChat =
+          currentChat.slice(
+            0,
+            editIndex + 1
+          );
+
+        currentChat[editIndex] = {
+          ...message,
+          content: text
+        };
+
+        editingMessageIndex =
+          null;
+
+        removeWelcome();
+        input.value = "";
+        resizeTextarea();
+
+        renderCurrentChat();
+        saveCurrentChat();
+
+        aiBusy = true;
+        sendButton.disabled = true;
+
+        const typingMessage =
+          addTypingMessage();
+
+        try {
+
+          const response =
+            await fetch(
+              AI_API_URL,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type":
+                    "application/json"
+                },
+                body: JSON.stringify({
+                  messages:
+                    currentChat.map(
+                      message => ({
+                        role:
+                          message.role ===
+                          "bot"
+                            ? "assistant"
+                            : message.role,
+                        content:
+                          message.content
+                      })
+                    )
+                })
+              }
+            );
+
+          let data = null;
+
+          try {
+            data =
+              await response.json();
+          } catch (e) {
+            data = null;
+          }
+
+          if (!response.ok) {
+            throw new Error(
+              data?.details ||
+              data?.error ||
+              "AI request failed."
+            );
+          }
+
+          const reply =
+            data?.response ||
+            data?.result?.response ||
+            data?.text ||
+            data?.result ||
+            "Sorry, I couldn't generate a response.";
+
+          typingMessage.remove();
+
+          addMessage(
+            String(reply),
+            "bot",
+            currentChat.length
+          );
+
+          currentChat.push({
+            role: "bot",
+            content: String(reply)
+          });
+
+          saveCurrentChat();
+
+        } catch (error) {
+
+          console.error(
+            "AI edit error:",
+            error
+          );
+
+          typingMessage.remove();
+
+          const errorReply =
+            "Sorry, I couldn't connect to the AI right now. Please try again.";
+
+          addMessage(
+            errorReply,
+            "bot",
+            currentChat.length
+          );
+
+          currentChat.push({
+            role: "bot",
+            content: errorReply
+          });
+
+          saveCurrentChat();
+
+        } finally {
+
+          aiBusy = false;
+          sendButton.disabled = false;
+          input.focus();
+
+        }
+
+        return;
+      }
+
+      /* NORMAL / IMAGE GENERATION */
+
+      removeWelcome();
+
+      const userIndex =
+        currentChat.length;
+
+      addMessage(
+        text,
+        "user",
+        userIndex
+      );
+
+      currentChat.push({
+        role: "user",
+        content: text
+      });
 
       input.value = "";
       resizeTextarea();
-      clearSelectedText();
+
       saveCurrentChat();
 
       aiBusy = true;
-      sendButton.disabled = true;
-      const typingMessage = addTypingMessage();
+
+      sendButton.disabled =
+        true;
+
+      const typingMessage =
+        addTypingMessage();
 
       try {
-        if (isImageRequest(text)) {
-          if (!currentUser && !isAdminUser()) {
-            typingMessage.remove(); currentChat.pop(); renderCurrentChat();
+
+        /* IMAGE GENERATION */
+
+        if (
+          isImageRequest(text)
+        ) {
+
+          if (
+            !currentUser &&
+            !isAdminUser()
+          ) {
+
+            typingMessage.remove();
+
+            currentChat.pop();
+
+            renderCurrentChat();
+
             signupPrompt();
-            showAuthMessage("Please create a free account before generating images.");
+
+            showAuthMessage(
+              "Please create a free account before generating images."
+            );
+
             return;
           }
-          if (!canUseImageFeature()) {
-            typingMessage.remove(); currentChat.pop(); renderCurrentChat(); return;
+
+          if (
+            !canUseImageFeature()
+          ) {
+
+            typingMessage.remove();
+
+            currentChat.pop();
+
+            renderCurrentChat();
+
+            return;
           }
-          const prompt = cleanImagePrompt(text);
-          const response = await fetch(IMAGE_API_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt})});
-          let data=null; try { data=await response.json(); } catch(e) {}
-          if (!response.ok) throw new Error(data?.details||data?.error||"Image generation failed.");
-          if (!data?.image) throw new Error("The AI did not return an image.");
-          recordImageUsage(); typingMessage.remove(); addImageMessage(data.image,prompt);
-          currentChat.push({role:"bot",content:"[Generated image]\n"+prompt,image:data.image});
-          saveCurrentChat(); return;
+
+          const prompt =
+            cleanImagePrompt(text);
+
+          const response =
+            await fetch(
+              IMAGE_API_URL,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type":
+                    "application/json"
+                },
+                body: JSON.stringify({
+                  prompt: prompt
+                })
+              }
+            );
+
+          let data = null;
+
+          try {
+            data =
+              await response.json();
+          } catch (e) {
+            data = null;
+          }
+
+          if (!response.ok) {
+            throw new Error(
+              data?.details ||
+              data?.error ||
+              "Image generation failed."
+            );
+          }
+
+          if (!data?.image) {
+            throw new Error(
+              "The AI did not return an image."
+            );
+          }
+
+          recordImageUsage();
+
+          typingMessage.remove();
+
+          addImageMessage(
+            data.image,
+            prompt
+          );
+
+          currentChat.push({
+            role: "bot",
+            content:
+              "[Generated image]\n" +
+              prompt,
+            image:
+              data.image
+          });
+
+          saveCurrentChat();
+
+          return;
         }
 
-        const response = await fetch(AI_API_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:buildAiMessages()})});
-        let data=null; try { data=await response.json(); } catch(e) {}
-        if (!response.ok) throw new Error(data?.details||data?.error||"AI request failed.");
-        const reply=data?.response||data?.result?.response||data?.text||data?.result||"Sorry, I couldn't generate a response.";
+        /* NORMAL CHAT */
+
+        const response =
+          await fetch(
+            AI_API_URL,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type":
+                  "application/json"
+              },
+              body: JSON.stringify({
+                messages:
+                  currentChat.map(
+                    message => ({
+                      role:
+                        message.role ===
+                        "bot"
+                          ? "assistant"
+                          : message.role,
+                      content:
+                        message.content
+                    })
+                  )
+              })
+            }
+          );
+
+        let data = null;
+
+        try {
+          data =
+            await response.json();
+        } catch (e) {
+          data = null;
+        }
+
+        if (!response.ok) {
+          throw new Error(
+            data?.details ||
+            data?.error ||
+            "AI request failed."
+          );
+        }
+
+        const reply =
+          data?.response ||
+          data?.result?.response ||
+          data?.text ||
+          data?.result ||
+          "Sorry, I couldn't generate a response.";
+
         typingMessage.remove();
-        addMessage(String(reply),"bot",currentChat.length);
-        currentChat.push({role:"bot",content:String(reply)});
+
+        const botIndex =
+          currentChat.length;
+
+        addMessage(
+          String(reply),
+          "bot",
+          botIndex
+        );
+
+        currentChat.push({
+          role: "bot",
+          content: String(reply)
+        });
+
         saveCurrentChat();
-      } catch(error) {
-        console.error("AI error:",error);
+
+      } catch (error) {
+
+        console.error(
+          "AI error:",
+          error
+        );
+
         typingMessage.remove();
-        addMessage("Sorry, I couldn't connect to the AI right now. Please try again.","bot");
+
+        const errorReply =
+          "Sorry, I couldn't connect to the AI right now. Please try again.";
+
+        addMessage(
+          errorReply,
+          "bot"
+        );
+
       } finally {
-        aiBusy=false; sendButton.disabled=false; input.focus();
+
+        aiBusy = false;
+
+        sendButton.disabled =
+          false;
+
+        input.focus();
+
       }
+
     }
 
-    function buildAiMessages() {
-      return currentChat.map(message => ({
-        role: message.role === "bot" ? "assistant" : message.role,
-        content: message.selectionContext
-          ? `Please answer the user's question about this selected text.\n\nSelected text:\n"""${message.selectionContext}"""\n\nUser question:\n${message.content}`
-          : message.content
-      }));
-    }
-
-    async function submitEditedMessage(text) {
-      if (editingMessageIndex === null || aiBusy) return;
-      const index=editingMessageIndex;
-      const message=currentChat[index];
-      if (!message || message.role !== "user" || message.imageUpload) { cancelEdit(); return; }
-
-      message.content=text;
-      delete message.selectionContext;
-      currentChat=currentChat.slice(0,index+1);
-      editingMessageIndex=null;
-      updateEditingIndicator();
-      input.value="";
-      resizeTextarea();
-      clearSelectedText();
-      renderCurrentChat();
-      saveCurrentChat();
-
-      aiBusy=true; sendButton.disabled=true;
-      const typingMessage=addTypingMessage();
-      try {
-        if (isImageRequest(text)) {
-          if (!currentUser && !isAdminUser()) { typingMessage.remove(); renderCurrentChat(); signupPrompt(); showAuthMessage("Please create a free account before generating images."); return; }
-          if (!canUseImageFeature()) { typingMessage.remove(); renderCurrentChat(); return; }
-          const prompt=cleanImagePrompt(text);
-          const response=await fetch(IMAGE_API_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt})});
-          let data=null; try { data=await response.json(); } catch(e) {}
-          if (!response.ok) throw new Error(data?.details||data?.error||"Image generation failed.");
-          if (!data?.image) throw new Error("The AI did not return an image.");
-          recordImageUsage(); typingMessage.remove(); addImageMessage(data.image,prompt);
-          currentChat.push({role:"bot",content:"[Generated image]\n"+prompt,image:data.image}); saveCurrentChat(); return;
-        }
-        const response=await fetch(AI_API_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:buildAiMessages()})});
-        let data=null; try { data=await response.json(); } catch(e) {}
-        if (!response.ok) throw new Error(data?.details||data?.error||"AI request failed.");
-        const reply=data?.response||data?.result?.response||data?.text||data?.result||"Sorry, I couldn't generate a response.";
-        typingMessage.remove(); addMessage(String(reply),"bot",currentChat.length); currentChat.push({role:"bot",content:String(reply)}); saveCurrentChat();
-      } catch(error) {
-        console.error("Edit/regenerate error:",error); typingMessage.remove(); addMessage("Sorry, I couldn't connect to the AI right now. Please try again.","bot");
-      } finally { aiBusy=false; sendButton.disabled=false; input.focus(); }
-    }
 
     /* =========================
        IMAGE UPLOAD MESSAGE
@@ -3346,4 +3636,2188 @@
 
       const replacements = [
         /^can you\s+/i,
-       
+        /^could you\s+/i,
+        /^please\s+/i,
+        /^generate\s+(an?\s+)?image\s+(of\s+)?/i,
+        /^generate\s+(an?\s+)?picture\s+(of\s+)?/i,
+        /^create\s+(an?\s+)?image\s+(of\s+)?/i,
+        /^create\s+(an?\s+)?picture\s+(of\s+)?/i,
+        /^make\s+(me\s+)?(an?\s+)?image\s+(of\s+)?/i,
+        /^make\s+(me\s+)?(an?\s+)?picture\s+(of\s+)?/i,
+        /^draw\s+(an?\s+)?image\s+(of\s+)?/i,
+        /^draw\s+(an?\s+)?picture\s+(of\s+)?/i,
+        /^(make|create|draw|generate|paint|render)\s+(me\s+)?(a|an)?\s+/i
+      ];
+
+      replacements.forEach(
+        regex => {
+
+          prompt =
+            prompt.replace(
+              regex,
+              ""
+            );
+
+        }
+      );
+
+      return (
+        prompt.trim() ||
+        "A beautiful creative digital artwork"
+      );
+
+    }
+
+
+    /* =========================
+       ADD USER IMAGE MESSAGE
+    ========================= */
+
+    function addUserImageMessage(
+      imageData,
+      text,
+      fileName
+    ) {
+
+      const message =
+        document.createElement(
+          "div"
+        );
+
+      message.className =
+        "message user";
+
+      const avatar =
+        document.createElement(
+          "div"
+        );
+
+      avatar.className =
+        "message-avatar user-avatar";
+
+      avatar.textContent =
+        currentUser?.user_metadata?.full_name
+          ?.charAt(0)
+          ?.toUpperCase() ||
+        "U";
+
+      const content =
+        document.createElement(
+          "div"
+        );
+
+      content.className =
+        "message-content";
+
+      const image =
+        document.createElement(
+          "img"
+        );
+
+      image.className =
+        "uploaded-image";
+
+      image.src =
+        imageData;
+
+      image.alt =
+        fileName ||
+        "Uploaded image";
+
+      content.appendChild(
+        image
+      );
+
+      if (text) {
+
+        const textElement =
+          document.createElement(
+            "div"
+          );
+
+        textElement.textContent =
+          text;
+
+        content.appendChild(
+          textElement
+        );
+
+      }
+
+      message.appendChild(
+        content
+      );
+
+      message.appendChild(
+        avatar
+      );
+
+      messages.appendChild(
+        message
+      );
+
+      chatArea.scrollTop =
+        chatArea.scrollHeight;
+
+      return message;
+
+    }
+
+
+    /* =========================
+       ADD TEXT MESSAGE
+    ========================= */
+
+    function addMessage(
+      text,
+      type,
+      chatIndex = null
+    ) {
+
+      const message =
+        document.createElement(
+          "div"
+        );
+
+      message.className =
+        "message " +
+        (
+          type === "user"
+            ? "user"
+            : "bot"
+        );
+
+      const avatar =
+        document.createElement(
+          "div"
+        );
+
+      avatar.className =
+        "message-avatar " +
+        (
+          type === "user"
+            ? "user-avatar"
+            : "bot-avatar"
+        );
+
+      if (
+        type === "user"
+      ) {
+
+        avatar.textContent =
+          currentUser?.user_metadata?.full_name
+            ?.charAt(0)
+            ?.toUpperCase() ||
+          "U";
+
+      } else {
+
+        const img =
+          document.createElement(
+            "img"
+          );
+
+        img.src =
+          "https://i.ibb.co/C36d4GVm/Chat-GPT-Image-Sep-16-2026-08-48-19-PM.png";
+
+        img.alt =
+          "Chatabot";
+
+        avatar.appendChild(
+          img
+        );
+
+      }
+
+      const content =
+        document.createElement(
+          "div"
+        );
+
+      content.className =
+        "message-content";
+
+      if (
+        type === "bot"
+      ) {
+
+        renderBotContent(
+          content,
+          String(text)
+        );
+
+      } else {
+
+        content.textContent =
+          text;
+
+      }
+
+      const actions =
+        document.createElement(
+          "div"
+        );
+
+      actions.className =
+        "message-actions";
+
+      const menuWrap =
+        document.createElement(
+          "div"
+        );
+
+      menuWrap.className =
+        "message-menu-wrap";
+
+      const menuButton =
+        document.createElement(
+          "button"
+        );
+
+      menuButton.className =
+        "message-menu-button";
+
+      menuButton.textContent =
+        "⋮";
+
+      menuButton.title =
+        "Message options";
+
+      const menu =
+        document.createElement(
+          "div"
+        );
+
+      menu.className =
+        "message-menu";
+
+      const copyButton =
+        document.createElement(
+          "button"
+        );
+
+      copyButton.textContent =
+        "Copy message";
+
+      copyButton.onclick =
+        event => {
+
+          event.stopPropagation();
+
+          copyText(
+            String(text)
+          );
+
+          menu.classList.remove(
+            "show"
+          );
+
+        };
+
+      menu.appendChild(
+        copyButton
+      );
+
+      if (
+        type === "user" &&
+        chatIndex !== null
+      ) {
+
+        const editButton =
+          document.createElement(
+            "button"
+          );
+
+        editButton.textContent =
+          "Edit message";
+
+        editButton.onclick =
+          event => {
+
+            event.stopPropagation();
+
+            editUserMessage(
+              chatIndex
+            );
+
+            menu.classList.remove(
+              "show"
+            );
+
+          };
+
+        menu.appendChild(
+          editButton
+        );
+
+      }
+
+      menuButton.onclick =
+        event => {
+
+          event.stopPropagation();
+
+          document
+            .querySelectorAll(
+              ".message-menu.show"
+            )
+            .forEach(
+              openMenu => {
+
+                if (
+                  openMenu !== menu
+                ) {
+
+                  openMenu.classList.remove(
+                    "show"
+                  );
+
+                }
+
+              }
+            );
+
+          menu.classList.toggle(
+            "show"
+          );
+
+        };
+
+      menuWrap.appendChild(
+        menuButton
+      );
+
+      menuWrap.appendChild(
+        menu
+      );
+
+      actions.appendChild(
+        menuWrap
+      );
+
+      content.appendChild(
+        actions
+      );
+
+      message.appendChild(
+        avatar
+      );
+
+      message.appendChild(
+        content
+      );
+
+      messages.appendChild(
+        message
+      );
+
+      chatArea.scrollTop =
+        chatArea.scrollHeight;
+
+      return message;
+
+    }
+
+
+    /* =========================
+       EDIT USER MESSAGE
+    ========================= */
+
+    function editUserMessage(
+      index
+    ) {
+
+      const message =
+        currentChat[index];
+
+      if (
+        !message ||
+        message.role !== "user"
+      ) {
+        return;
+      }
+
+      editingMessageIndex =
+        index;
+
+      input.value =
+        message.content || "";
+
+      resizeTextarea();
+
+      input.focus();
+
+      input.setSelectionRange(
+        input.value.length,
+        input.value.length
+      );
+
+    }
+
+
+    /* =========================
+       ADD IMAGE MESSAGE
+    ========================= */
+
+    function addImageMessage(
+      imageData,
+      prompt
+    ) {
+
+      const message =
+        document.createElement(
+          "div"
+        );
+
+      message.className =
+        "message bot";
+
+      const avatar =
+        document.createElement(
+          "div"
+        );
+
+      avatar.className =
+        "message-avatar bot-avatar";
+
+      const avatarImg =
+        document.createElement(
+          "img"
+        );
+
+      avatarImg.src =
+        "https://i.ibb.co/C36d4GVm/Chat-GPT-Image-Sep-16-2026-08-48-19-PM.png";
+
+      avatarImg.alt =
+        "Chatabot";
+
+      avatar.appendChild(
+        avatarImg
+      );
+
+      const content =
+        document.createElement(
+          "div"
+        );
+
+      content.className =
+        "message-content";
+
+      const label =
+        document.createElement(
+          "div"
+        );
+
+      label.className =
+        "image-label";
+
+      label.textContent =
+        "Generated image";
+
+      const image =
+        document.createElement(
+          "img"
+        );
+
+      image.className =
+        "generated-image";
+
+      image.src =
+        imageData.startsWith("data:")
+          ? imageData
+          : "data:image/jpeg;base64," +
+            imageData;
+
+      image.alt =
+        prompt ||
+        "Generated image";
+
+      content.appendChild(
+        label
+      );
+
+      content.appendChild(
+        image
+      );
+
+      const actions =
+        document.createElement(
+          "div"
+        );
+
+      actions.className =
+        "message-actions";
+
+      const menuWrap =
+        document.createElement(
+          "div"
+        );
+
+      menuWrap.className =
+        "message-menu-wrap";
+
+      const menuButton =
+        document.createElement(
+          "button"
+        );
+
+      menuButton.className =
+        "message-menu-button";
+
+      menuButton.textContent =
+        "⋮";
+
+      const menu =
+        document.createElement(
+          "div"
+        );
+
+      menu.className =
+        "message-menu";
+
+      const copyButton =
+        document.createElement(
+          "button"
+        );
+
+      copyButton.textContent =
+        "Copy prompt";
+
+      copyButton.onclick =
+        () =>
+          copyText(
+            prompt || ""
+          );
+
+      menu.appendChild(
+        copyButton
+      );
+
+      menuButton.onclick =
+        event => {
+
+          event.stopPropagation();
+
+          menu.classList.toggle(
+            "show"
+          );
+
+        };
+
+      menuWrap.appendChild(
+        menuButton
+      );
+
+      menuWrap.appendChild(
+        menu
+      );
+
+      actions.appendChild(
+        menuWrap
+      );
+
+      content.appendChild(
+        actions
+      );
+
+      message.appendChild(
+        avatar
+      );
+
+      message.appendChild(
+        content
+      );
+
+      messages.appendChild(
+        message
+      );
+
+      chatArea.scrollTop =
+        chatArea.scrollHeight;
+
+      return message;
+
+    }
+
+
+    /* =========================
+       BOT CONTENT RENDERER
+    ========================= */
+
+    function renderBotContent(
+      container,
+      text
+    ) {
+
+      const codeRegex =
+        /```([\w#+.-]*)\n?([\s\S]*?)```/g;
+
+      let lastIndex = 0;
+
+      let match;
+
+      while (
+        (match =
+          codeRegex.exec(text)) !==
+        null
+      ) {
+
+        if (
+          match.index >
+          lastIndex
+        ) {
+
+          const before =
+            text.substring(
+              lastIndex,
+              match.index
+            );
+
+          const div =
+            document.createElement(
+              "div"
+            );
+
+          div.className =
+            "plain-bot-text";
+
+          div.textContent =
+            before;
+
+          container.appendChild(
+            div
+          );
+
+        }
+
+        const language =
+          match[1] ||
+          "code";
+
+        const code =
+          match[2]
+            .replace(
+              /^\n/,
+              ""
+            )
+            .replace(
+              /\n$/,
+              ""
+            );
+
+        const block =
+          document.createElement(
+            "div"
+          );
+
+        block.className =
+          "code-block";
+
+        const header =
+          document.createElement(
+            "div"
+          );
+
+        header.className =
+          "code-header";
+
+        const label =
+          document.createElement(
+            "span"
+          );
+
+        label.textContent =
+          language;
+
+        const copyButton =
+          document.createElement(
+            "button"
+          );
+
+        copyButton.className =
+          "copy-code-button";
+
+        copyButton.textContent =
+          "Copy";
+
+        copyButton.onclick =
+          async () => {
+
+            await copyText(
+              code
+            );
+
+            copyButton.textContent =
+              "Copied";
+
+            setTimeout(
+              () => {
+                copyButton.textContent =
+                  "Copy";
+              },
+              1200
+            );
+
+          };
+
+        header.appendChild(
+          label
+        );
+
+        header.appendChild(
+          copyButton
+        );
+
+        const pre =
+          document.createElement(
+            "pre"
+          );
+
+        pre.textContent =
+          code;
+
+        block.appendChild(
+          header
+        );
+
+        block.appendChild(
+          pre
+        );
+
+        container.appendChild(
+          block
+        );
+
+        lastIndex =
+          codeRegex.lastIndex;
+
+      }
+
+      if (
+        lastIndex <
+        text.length
+      ) {
+
+        const remaining =
+          text.substring(
+            lastIndex
+          );
+
+        const div =
+          document.createElement(
+            "div"
+          );
+
+        div.className =
+          "plain-bot-text";
+
+        div.textContent =
+          remaining;
+
+        container.appendChild(
+          div
+        );
+
+      }
+
+      if (
+        !container.children.length
+      ) {
+
+        const div =
+          document.createElement(
+            "div"
+          );
+
+        div.className =
+          "plain-bot-text";
+
+        div.textContent =
+          text;
+
+        container.appendChild(
+          div
+        );
+
+      }
+
+    }
+
+
+    /* =========================
+       COPY TEXT
+    ========================= */
+
+    async function copyText(
+      text
+    ) {
+
+      try {
+
+        await navigator.clipboard.writeText(
+          text
+        );
+
+      } catch (error) {
+
+        const area =
+          document.createElement(
+            "textarea"
+          );
+
+        area.value =
+          text;
+
+        document.body.appendChild(
+          area
+        );
+
+        area.select();
+
+        document.execCommand(
+          "copy"
+        );
+
+        area.remove();
+
+      }
+
+    }
+
+
+    /* =========================
+       SELECTION MENU
+    ========================= */
+
+    document.addEventListener(
+      "mouseup",
+      event => {
+
+        setTimeout(
+          () => {
+
+            const selection =
+              window.getSelection();
+
+            const text =
+              selection?.toString()
+                ?.trim();
+
+            if (
+              !text ||
+              !selection ||
+              selection.rangeCount === 0
+            ) {
+
+              selectionMenu.classList.remove(
+                "show"
+              );
+
+              return;
+
+            }
+
+            const node =
+              selection.anchorNode;
+
+            const messageElement =
+              node?.parentElement
+                ?.closest(
+                  ".message-content"
+                );
+
+            if (!messageElement) {
+
+              selectionMenu.classList.remove(
+                "show"
+              );
+
+              return;
+
+            }
+
+            selectedText =
+              text;
+
+            const range =
+              selection.getRangeAt(0);
+
+            const rect =
+              range.getBoundingClientRect();
+
+            let left =
+              rect.left;
+
+            let top =
+              rect.top - 45;
+
+            if (top < 5) {
+              top =
+                rect.bottom + 8;
+            }
+
+            if (
+              left + 180 >
+              window.innerWidth
+            ) {
+
+              left =
+                window.innerWidth -
+                190;
+
+            }
+
+            selectionMenu.style.left =
+              Math.max(
+                5,
+                left
+              ) + "px";
+
+            selectionMenu.style.top =
+              Math.max(
+                5,
+                top
+              ) + "px";
+
+            selectionMenu.classList.add(
+              "show"
+            );
+
+          },
+          0
+        );
+
+      }
+    );
+
+
+    function copySelectedText() {
+
+      if (!selectedText) return;
+
+      copyText(
+        selectedText
+      );
+
+      selectionMenu.classList.remove(
+        "show"
+      );
+
+    }
+
+
+    function askSelectedText() {
+
+      if (!selectedText) return;
+
+      /* Put the selected text into the composer only.
+         Do not create a new chat or message automatically. */
+      input.value = selectedText;
+
+      resizeTextarea();
+
+      input.focus();
+
+      input.setSelectionRange(
+        input.value.length,
+        input.value.length
+      );
+
+      selectionMenu.classList.remove(
+        "show"
+      );
+
+      selectedText = "";
+
+    }
+
+
+    /* =========================
+       TYPING
+    ========================= */
+
+    function addTypingMessage() {
+
+      const message =
+        document.createElement(
+          "div"
+        );
+
+      message.className =
+        "message bot";
+
+      const avatar =
+        document.createElement(
+          "div"
+        );
+
+      avatar.className =
+        "message-avatar bot-avatar";
+
+      const img =
+        document.createElement(
+          "img"
+        );
+
+      img.src =
+        "https://i.ibb.co/C36d4GVm/Chat-GPT-Image-Sep-16-2026-08-48-19-PM.png";
+
+      img.alt =
+        "Chatabot";
+
+      avatar.appendChild(
+        img
+      );
+
+      const content =
+        document.createElement(
+          "div"
+        );
+
+      content.className =
+        "message-content";
+
+      content.innerHTML = `
+        <div class="typing">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+      `;
+
+      message.appendChild(
+        avatar
+      );
+
+      message.appendChild(
+        content
+      );
+
+      messages.appendChild(
+        message
+      );
+
+      chatArea.scrollTop =
+        chatArea.scrollHeight;
+
+      return message;
+
+    }
+
+
+    /* =========================
+       RENDER CURRENT CHAT
+    ========================= */
+
+    function renderCurrentChat() {
+
+      messages.innerHTML =
+        "";
+
+      if (
+        !currentChat.length
+      ) {
+
+        showWelcome();
+
+        return;
+
+      }
+
+      currentChat.forEach(
+        (
+          message,
+          index
+        ) => {
+
+          if (
+            message.image
+          ) {
+
+            addImageMessage(
+              message.image,
+              message.content
+                ?.replace(
+                  "[Generated image]\n",
+                  ""
+                )
+            );
+
+          } else if (
+            message.imageUpload
+          ) {
+
+            const placeholder =
+              document.createElement(
+                "div"
+              );
+
+            placeholder.className =
+              "message user";
+
+            const avatar =
+              document.createElement(
+                "div"
+              );
+
+            avatar.className =
+              "message-avatar user-avatar";
+
+            avatar.textContent =
+              currentUser?.user_metadata?.full_name
+                ?.charAt(0)
+                ?.toUpperCase() ||
+              "U";
+
+            const content =
+              document.createElement(
+                "div"
+              );
+
+            content.className =
+              "message-content";
+
+            content.textContent =
+              "📎 " +
+              (
+                message.imageName ||
+                "Uploaded image"
+              ) +
+              (
+                message.content
+                  ? "\n" +
+                    message.content
+                  : ""
+              );
+
+            placeholder.appendChild(
+              content
+            );
+
+            placeholder.appendChild(
+              avatar
+            );
+
+            messages.appendChild(
+              placeholder
+            );
+
+          } else {
+
+            addMessage(
+              message.content,
+              message.role === "user"
+                ? "user"
+                : "bot",
+              index
+            );
+
+          }
+
+        }
+      );
+
+    }
+
+
+    /* =========================
+       NEW CHAT
+    ========================= */
+
+    function newChat() {
+
+      if (
+        currentChat.length > 0
+      ) {
+
+        saveCurrentChat();
+
+      }
+
+      currentChat = [];
+
+      selectedChat = null;
+
+      editingMessageIndex =
+        null;
+
+      showWelcome();
+
+      input.value = "";
+
+      resizeTextarea();
+
+      clearSelectedImage();
+
+      closeMobileSidebar();
+
+      renderHistory();
+
+    }
+
+
+    /* =========================
+       SAVE CHAT
+    ========================= */
+
+    function saveCurrentChat() {
+
+      if (
+        !currentChat.length
+      ) return;
+
+      const firstUserMessage =
+        currentChat.find(
+          m =>
+            m.role === "user"
+        );
+
+      const title =
+        firstUserMessage
+          ? firstUserMessage.content.substring(
+              0,
+              45
+            )
+          : "New chat";
+
+      if (
+        selectedChat !== null
+      ) {
+
+        const oldChat =
+          chats[selectedChat] || {};
+
+        chats[selectedChat] = {
+          title: title,
+          messages:
+            currentChat,
+          pinned:
+            oldChat.pinned || false
+        };
+
+      } else {
+
+        chats.unshift({
+          title: title,
+          messages:
+            currentChat,
+          pinned: false
+        });
+
+        selectedChat = 0;
+
+      }
+
+      try {
+
+        localStorage.setItem(
+          "chatabot_history",
+          JSON.stringify(chats)
+        );
+
+      } catch (error) {
+
+        console.error(
+          "Could not save chat:",
+          error
+        );
+
+      }
+
+      renderHistory();
+
+    }
+
+
+    /* =========================
+       HISTORY
+    ========================= */
+
+    function renderHistory(
+      searchTerm = ""
+    ) {
+
+      history.innerHTML =
+        "";
+
+      let visibleChats =
+        chats
+          .map(
+            (chat, index) => ({
+              chat,
+              index
+            })
+          )
+          .filter(
+            item => {
+
+              if (!searchTerm)
+                return true;
+
+              return (
+                item.chat.title ||
+                ""
+              )
+                .toLowerCase()
+                .includes(
+                  searchTerm
+                );
+
+            }
+          );
+
+      visibleChats.sort(
+        (a, b) => {
+
+          if (
+            Boolean(b.chat.pinned) !==
+            Boolean(a.chat.pinned)
+          ) {
+
+            return b.chat.pinned
+              ? 1
+              : -1;
+
+          }
+
+          return a.index - b.index;
+
+        }
+      );
+
+      if (!visibleChats.length) {
+
+        history.innerHTML =
+          '<div class="empty-history">No chats found</div>';
+
+        return;
+
+      }
+
+      visibleChats.forEach(
+        ({
+          chat,
+          index
+        }) => {
+
+          const wrap =
+            document.createElement(
+              "div"
+            );
+
+          wrap.className =
+            "history-item-wrap";
+
+          const item =
+            document.createElement(
+              "div"
+            );
+
+          item.className =
+            "history-item " +
+            (
+              index === selectedChat
+                ? "active"
+                : ""
+            ) +
+            (
+              chat.pinned
+                ? " pinned"
+                : ""
+            );
+
+          if (chat.pinned) {
+
+            const pin =
+              document.createElement(
+                "span"
+              );
+
+            pin.className =
+              "pin-mark";
+
+            pin.textContent =
+              "📌";
+
+            item.appendChild(
+              pin
+            );
+
+          }
+
+          const title =
+            document.createElement(
+              "span"
+            );
+
+          title.textContent =
+            chat.title ||
+            "New chat";
+
+          item.appendChild(
+            title
+          );
+
+          item.onclick =
+            () =>
+              loadChat(index);
+
+          const menuButton =
+            document.createElement(
+              "button"
+            );
+
+          menuButton.className =
+            "chat-menu-button";
+
+          menuButton.textContent =
+            "⋮";
+
+          menuButton.title =
+            "Chat options";
+
+          const menu =
+            document.createElement(
+              "div"
+            );
+
+          menu.className =
+            "chat-menu";
+
+          menuButton.onclick =
+            event => {
+
+              event.stopPropagation();
+
+              document
+                .querySelectorAll(
+                  ".chat-menu.show"
+                )
+                .forEach(
+                  openMenu =>
+                    openMenu !== menu &&
+                    openMenu.classList.remove(
+                      "show"
+                    )
+                );
+
+              document
+                .querySelectorAll(
+                  ".chat-menu-button.open"
+                )
+                .forEach(
+                  openButton =>
+                    openButton !== menuButton &&
+                    openButton.classList.remove(
+                      "open"
+                    )
+                );
+
+              menu.classList.toggle(
+                "show"
+              );
+
+              menuButton.classList.toggle(
+                "open"
+              );
+
+            };
+
+          const renameButton =
+            document.createElement(
+              "button"
+            );
+
+          renameButton.textContent =
+            "Rename";
+
+          renameButton.onclick =
+            event => {
+
+              event.stopPropagation();
+
+              renameChat(index);
+
+              menu.classList.remove(
+                "show"
+              );
+
+              menuButton.classList.remove(
+                "open"
+              );
+
+            };
+
+          const pinButton =
+            document.createElement(
+              "button"
+            );
+
+          pinButton.textContent =
+            chat.pinned
+              ? "Unpin Chat"
+              : "Pin Chat";
+
+          pinButton.onclick =
+            event => {
+
+              event.stopPropagation();
+
+              togglePinChat(index);
+
+              menu.classList.remove(
+                "show"
+              );
+
+              menuButton.classList.remove(
+                "open"
+              );
+
+            };
+
+          const shareButton =
+            document.createElement(
+              "button"
+            );
+
+          shareButton.textContent =
+            "Share Chat";
+
+          shareButton.onclick =
+            event => {
+
+              event.stopPropagation();
+
+              shareChat(index);
+
+              menu.classList.remove(
+                "show"
+              );
+
+              menuButton.classList.remove(
+                "open"
+              );
+
+            };
+
+          const deleteButton =
+            document.createElement(
+              "button"
+            );
+
+          deleteButton.textContent =
+            "Delete";
+
+          deleteButton.className =
+            "delete-chat";
+
+          deleteButton.onclick =
+            event => {
+
+              event.stopPropagation();
+
+              deleteChat(index);
+
+              menu.classList.remove(
+                "show"
+              );
+
+              menuButton.classList.remove(
+                "open"
+              );
+
+            };
+
+          menu.appendChild(
+            renameButton
+          );
+
+          menu.appendChild(
+            pinButton
+          );
+
+          menu.appendChild(
+            shareButton
+          );
+
+          menu.appendChild(
+            deleteButton
+          );
+
+          wrap.appendChild(
+            item
+          );
+
+          wrap.appendChild(
+            menuButton
+          );
+
+          wrap.appendChild(
+            menu
+          );
+
+          history.appendChild(
+            wrap
+          );
+
+        }
+      );
+
+    }
+
+
+    /* =========================
+       RENAME CHAT
+    ========================= */
+
+    function renameChat(index) {
+
+      const chat =
+        chats[index];
+
+      if (!chat) return;
+
+      const newName =
+        prompt(
+          "Enter new chat name:",
+          chat.title || "New chat"
+        );
+
+      if (
+        newName === null
+      ) return;
+
+      const cleanName =
+        newName.trim();
+
+      if (!cleanName) return;
+
+      chat.title =
+        cleanName.substring(
+          0,
+          80
+        );
+
+      localStorage.setItem(
+        "chatabot_history",
+        JSON.stringify(chats)
+      );
+
+      renderHistory(
+        chatSearchInput.value
+          .trim()
+          .toLowerCase()
+      );
+
+    }
+
+
+    /* =========================
+       PIN CHAT
+    ========================= */
+
+    function togglePinChat(index) {
+
+      const chat =
+        chats[index];
+
+      if (!chat) return;
+
+      chat.pinned =
+        !chat.pinned;
+
+      localStorage.setItem(
+        "chatabot_history",
+        JSON.stringify(chats)
+      );
+
+      renderHistory(
+        chatSearchInput.value
+          .trim()
+          .toLowerCase()
+      );
+
+    }
+
+
+    /* =========================
+       DELETE CHAT
+    ========================= */
+
+    function deleteChat(index) {
+
+      const chat =
+        chats[index];
+
+      if (!chat) return;
+
+      const confirmed =
+        confirm(
+          "Delete this chat?"
+        );
+
+      if (!confirmed) return;
+
+      chats.splice(
+        index,
+        1
+      );
+
+      if (
+        selectedChat === index
+      ) {
+
+        currentChat = [];
+
+        selectedChat = null;
+
+        showWelcome();
+
+      } else if (
+        selectedChat !== null &&
+        index < selectedChat
+      ) {
+
+        selectedChat--;
+
+      }
+
+      localStorage.setItem(
+        "chatabot_history",
+        JSON.stringify(chats)
+      );
+
+      renderHistory();
+
+    }
+
+
+    /* =========================
+       SHARE CHAT
+    ========================= */
+
+    async function shareChat(index) {
+
+      const chat =
+        chats[index];
+
+      if (!chat) return;
+
+      const shareText =
+        "Chatabot chat: " +
+        (chat.title || "Chat") +
+        "\n\n" +
+        chat.messages
+          .map(
+            message =>
+              (
+                message.role === "user"
+                  ? "You: "
+                  : "Chatabot: "
+              ) +
+              (
+                message.image
+                  ? "[Generated image]"
+                  : message.content
+              )
+          )
+          .join("\n\n");
+
+      try {
+
+        if (
+          navigator.share
+        ) {
+
+          await navigator.share({
+            title:
+              chat.title ||
+              "Chatabot Chat",
+            text:
+              shareText
+          });
+
+        } else if (
+          navigator.clipboard
+        ) {
+
+          await navigator.clipboard.writeText(
+            shareText
+          );
+
+          alert(
+            "Chat copied to clipboard."
+          );
+
+        } else {
+
+          prompt(
+            "Copy this chat:",
+            shareText
+          );
+
+        }
+
+      } catch (error) {
+
+        if (
+          error?.name !==
+          "AbortError"
+        ) {
+
+          alert(
+            "Could not share this chat."
+          );
+
+        }
+
+      }
+
+    }
+
+
+    /* =========================
+       LOAD CHAT
+    ========================= */
+
+    function loadChat(index) {
+
+      const chat =
+        chats[index];
+
+      if (!chat) return;
+
+      selectedChat =
+        index;
+
+      currentChat =
+        [...chat.messages];
+
+      editingMessageIndex =
+        null;
+
+      renderCurrentChat();
+
+      renderHistory();
+
+      closeMobileSidebar();
+
+    }
+
+
+    /* =========================
+       WELCOME
+    ========================= */
+
+    function removeWelcome() {
+
+      const welcome =
+        document.getElementById(
+          "welcome"
+        );
+
+      if (welcome) {
+        welcome.remove();
+      }
+
+    }
+
+
+    function showWelcome() {
+
+      messages.innerHTML =
+        "";
+
+      const welcome =
+        document.createElement(
+          "div"
+        );
+
+      welcome.className =
+        "welcome";
+
+      welcome.id =
+        "welcome";
+
+      welcome.innerHTML = `
+        <img
+          class="welcome-logo"
+          src="https://i.ibb.co/C36d4GVm/Chat-GPT-Image-Sep-16-2026-08-48-19-PM.png"
+          alt="Chatabot"
+        >
+        <h1>How can I help you?</h1>
+        <p>Ask Chatabot anything.</p>
+      `;
+
+      messages.appendChild(
+        welcome
+      );
+
+    }
+
+
+    /* =========================
+       ENTER TO SEND
+    ========================= */
+
+    function handleKey(
+      event
+    ) {
+
+      if (
+        event.key === "Enter" &&
+        !event.shiftKey
+      ) {
+
+        event.preventDefault();
+
+        sendMessage();
+
+      }
+
+    }
+
+
+    /* =========================
+       TEXTAREA RESIZE
+    ========================= */
+
+    function resizeTextarea() {
+
+      input.style.height =
+        "auto";
+
+      input.style.height =
+        Math.min(
+          input.scrollHeight,
+          150
+        ) + "px";
+
+    }
+
+
+    /* =========================
+       IMAGE UPLOAD UI
+    ========================= */
+
+    function handleImageUpload(
+      event
+    ) {
+
+      const file =
+        event.target.files[0];
+
+      if (!file) return;
+
+      if (
+        !file.type.startsWith(
+          "image/"
+        )
+      ) {
+
+        alert(
+          "Please select an image file."
+        );
+
+        return;
+
+      }
+
+      if (
+        file.size >
+        5 * 1024 * 1024
+      ) {
+
+        alert(
+          "Please choose an image smaller than 5 MB."
+        );
+
+        event.target.value =
+          "";
+
+        return;
+
+      }
+
+      if (
+        !canUseImageFeature()
+      ) {
+
+        event.target.value =
+          "";
+
+        return;
+
+      }
+
+      selectedImageFile =
+        file;
+
+      uploadPreview.style.display =
+        "block";
+
+      uploadPreview.textContent =
+        "📎 " +
+        file.name +
+        " selected — press Send to analyze";
+
+    }
+
+
+    function clearSelectedImage() {
+
+      selectedImageFile =
+        null;
+
+      uploadPreview.style.display =
+        "none";
+
+      uploadPreview.textContent =
+        "";
+
+      const fileInput =
+        document.getElementById(
+          "fileInput"
+        );
+
+      fileInput.value =
+        "";
+
+    }
+
+
+    /* =========================
+       MOBILE SIDEBAR
+    ========================= */
+
+    function toggleSidebar() {
+
+      document
+        .getElementById(
+          "sidebar"
+        )
+        .classList.toggle(
+          "open"
+        );
+
+      document
+        .getElementById(
+          "overlay"
+        )
+        .classList.toggle(
+          "show"
+        );
+
+    }
+
+
+    function closeMobileSidebar() {
+
+      document
+        .getElementById(
+          "sidebar"
+        )
+        .classList.remove(
+          "open"
+        );
+
+      document
+        .getElementById(
+          "overlay"
+        )
+        .classList.remove(
+          "show"
+        );
+
+    }
+
+
+    /* =========================
+       CLOSE MENUS ON OUTSIDE CLICK
+    ========================= */
+
+    document.addEventListener(
+      "click",
+      event => {
+
+        if (
+          !event.target.closest(
+            ".message-menu-wrap"
+          )
+        ) {
+
+          document
+            .querySelectorAll(
+              ".message-menu.show"
+            )
+            .forEach(
+              menu =>
+                menu.classList.remove(
+                  "show"
+                )
+            );
+
+        }
+
+        if (
+          !event.target.closest(
+            ".chat-menu-button"
+          ) &&
+          !event.target.closest(
+            ".chat-menu"
+          )
+        ) {
+
+          document
+            .querySelectorAll(
+              ".chat-menu.show"
+            )
+            .forEach(
+              menu =>
+                menu.classList.remove(
+                  "show"
+                )
+            );
+
+          document
+            .querySelectorAll(
+              ".chat-menu-button.open"
+            )
+            .forEach(
+              button =>
+                button.classList.remove(
+                  "open"
+                )
+            );
+
+        }
+
+        if (
+          !event.target.closest(
+            ".selection-menu"
+          )
+        ) {
+
+          const selection =
+            window.getSelection();
+
+          if (
+            !selection ||
+            !selection.toString().trim()
+          ) {
+
+            selectionMenu.classList.remove(
+              "show"
+            );
+
+          }
+
+        }
+
+      }
+    );
+
+  </script>
+
+</body>
+</html>
