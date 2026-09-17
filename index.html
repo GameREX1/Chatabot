@@ -965,6 +965,17 @@
       color: white;
     }
 
+    .selected-context-box {
+      width: 100%; display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;
+      margin-bottom: 8px; padding: 9px 11px; border: 1px solid #303030; border-left: 3px solid #777;
+      border-radius: 10px; background: #111; box-sizing: border-box;
+    }
+    .selected-context-content { min-width: 0; }
+    .selected-context-title { color: #aaa; font-size: 11px; font-weight: 700; margin-bottom: 3px; }
+    .selected-context-text { color: #ddd; font-size: 13px; line-height: 1.35; white-space: pre-wrap; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; }
+    .selected-context-close { flex: 0 0 auto; border: none; background: transparent; color: #888; font-size: 19px; line-height: 1; cursor: pointer; padding: 0 2px; }
+    .selected-context-close:hover { color: #fff; }
+
     /* =========================
        AUTH MODAL
     ========================= */
@@ -1825,6 +1836,14 @@
             ＋
           </button>
 
+          <div id="selectedContextBox" class="selected-context-box" style="display:none;">
+            <div class="selected-context-content">
+              <div class="selected-context-title">Selected message</div>
+              <div id="selectedContextText" class="selected-context-text"></div>
+            </div>
+            <button type="button" class="selected-context-close" onclick="clearSelectedContext()" title="Remove selected message">×</button>
+          </div>
+
           <textarea
             id="userInput"
             placeholder="Message Chatabot..."
@@ -2008,6 +2027,12 @@
     const selectionMenu =
       document.getElementById("selectionMenu");
 
+    const selectedContextBox =
+      document.getElementById("selectedContextBox");
+
+    const selectedContextText =
+      document.getElementById("selectedContextText");
+
 
     /* =========================
        CHAT DATA
@@ -2031,6 +2056,8 @@
     let editingMessageIndex = null;
 
     let selectedText = "";
+
+    let selectedContext = "";
 
 
     /* =========================
@@ -2989,6 +3016,9 @@
       const text =
         input.value.trim();
 
+      const contextForMessage =
+        selectedContext.trim();
+
       if (
         !text &&
         !selectedImageFile
@@ -3113,7 +3143,9 @@
                             ? "assistant"
                             : message.role,
                         content:
-                          message.content
+                          message.selectedContext
+                            ? `Selected message:\n${message.selectedContext}\n\nUser message:\n${message.content}`
+                            : message.content
                       })
                     )
                 })
@@ -3210,9 +3242,11 @@
 
       currentChat.push({
         role: "user",
-        content: text
+        content: text,
+        ...(contextForMessage ? { selectedContext: contextForMessage } : {})
       });
 
+      clearSelectedContext();
       input.value = "";
       resizeTextarea();
 
@@ -3495,11 +3529,10 @@
               },
 
               body: JSON.stringify({
-                prompt:
-                  text ||
-                  "Please analyze this image and tell me what you see.",
-                image:
-                  imageData
+                prompt: text || "Please analyze this image and tell me what you see.",
+                image: imageData,
+                imageData: imageData,
+                mimeType: file.type || "image/jpeg"
               })
             }
           );
@@ -4039,6 +4072,8 @@
 
       editingMessageIndex =
         index;
+
+      clearSelectedContext();
 
       input.value =
         message.content || "";
@@ -4610,25 +4645,26 @@
 
       if (!selectedText) return;
 
-      /* Put the selected text into the composer only.
-         Do not create a new chat or message automatically. */
-      input.value = selectedText;
-
+      selectedContext = selectedText;
+      selectedContextText.textContent = selectedContext;
+      selectedContextBox.style.display = "flex";
+      input.value = "";
       resizeTextarea();
-
       input.focus();
+      selectionMenu.classList.remove("show");
 
-      input.setSelectionRange(
-        input.value.length,
-        input.value.length
-      );
-
-      selectionMenu.classList.remove(
-        "show"
-      );
-
+      const selection = window.getSelection();
+      if (selection) selection.removeAllRanges();
       selectedText = "";
 
+    }
+
+
+    function clearSelectedContext() {
+      selectedContext = "";
+      selectedContextText.textContent = "";
+      selectedContextBox.style.display = "none";
+      input.focus();
     }
 
 
