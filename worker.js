@@ -3,15 +3,11 @@ export default {
     const url = new URL(request.url);
 
     // =========================
-    // GEMINI HELPER
+    // GEMINI INTERACTIONS HELPER
     // =========================
-    async function geminiRequest(model, payload) {
-      if (!env.GEMINI_API_KEY) {
-        throw new Error("GEMINI_API_KEY is not configured in Cloudflare.");
-      }
-
+    async function geminiInteraction(payload) {
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+        "https://generativelanguage.googleapis.com/v1beta/interactions",
         {
           method: "POST",
           headers: {
@@ -22,28 +18,98 @@ export default {
         }
       );
 
-      const raw = await response.text();
-
-      let data;
-
-      try {
-        data = JSON.parse(raw);
-      } catch {
-        data = {
-          error: {
-            message: raw || "Unknown Gemini API response."
-          }
-        };
-      }
+      const data = await response.json();
 
       if (!response.ok) {
         throw new Error(
           data?.error?.message ||
+          data?.message ||
           `Gemini API error (${response.status})`
         );
       }
 
       return data;
+    }
+
+    // =========================
+    // EXTRACT TEXT FROM INTERACTION
+    // =========================
+    function extractText(data) {
+      if (typeof data?.output_text === "string") {
+        return data.output_text.trim();
+      }
+
+      const outputs = Array.isArray(data?.outputs)
+        ? data.outputs
+        : [];
+
+      const outputText = outputs
+        .filter(
+          (item) =>
+            item &&
+            (
+              item.type === "text" ||
+              item.type === "model_output"
+            )
+        )
+        .flatMap((item) => {
+          if (typeof item.text === "string") {
+            return [item.text];
+          }
+
+          if (Array.isArray(item.content)) {
+            return item.content
+              .filter(
+                (content) =>
+                  content &&
+                  content.type === "text" &&
+                  typeof content.text === "string"
+              )
+              .map((content) => content.text);
+          }
+
+          return [];
+        })
+        .join("")
+        .trim();
+
+      if (outputText) {
+        return outputText;
+      }
+
+      const steps = Array.isArray(data?.steps)
+        ? data.steps
+        : [];
+
+      return steps
+        .filter(
+          (step) =>
+            step &&
+            (
+              step.type === "model_output" ||
+              step.type === "text"
+            )
+        )
+        .flatMap((step) => {
+          if (typeof step.text === "string") {
+            return [step.text];
+          }
+
+          if (Array.isArray(step.content)) {
+            return step.content
+              .filter(
+                (content) =>
+                  content &&
+                  content.type === "text" &&
+                  typeof content.text === "string"
+              )
+              .map((content) => content.text);
+          }
+
+          return [];
+        })
+        .join("")
+        .trim();
     }
 
     // =========================
@@ -90,12 +156,15 @@ FORMATTING:
 OWNER:
 If the user asks who your owner is, who owns you, or asks about your owner, answer exactly:
 M. Rayyan Khan is my owner.
-    `.trim();
+`.trim();
 
     // =========================
     // AI CHAT
     // =========================
-    if (url.pathname === "/api/chat" && request.method === "POST") {
+    if (
+      url.pathname === "/api/chat" &&
+      request.method === "POST"
+    ) {
       try {
         const body = await request.json();
 
@@ -103,94 +172,71 @@ M. Rayyan Khan is my owner.
           ? body.messages
           : [];
 
-        const contents = incomingMessages
-          .filter(
-            (message) =>
-              message &&
-              (
-                message.role === "user" ||
-                message.role === "assistant" ||
-                message.role === "model"
+        const input = [];
+
+        for (const message of incomingMessages) {
+          if (!message) continue;
+
+          const role =
+            message.role === "assistant"
+              ? "model"
+              : message.role === "model"
+                ? "model"
+                : message.role === "user"
+                  ? "user"
+                  : null;
+
+          if (!role) continue;
+
+          if (typeof message.content === "string") {
+            input.push({
+              type: "text",
+              text:
+                role === "model"
+                  ? `Assistant: ${message.content}`
+                  : message.content
+            });
+
+            continue;
+          }
+
+          if (Array.isArray(message.content)) {
+            const textParts = message.content
+              .filter(
+                (part) =>
+                  part &&
+                  part.type === "text" &&
+                  typeof part.text === "string"
               )
-          )
-          .map((message) => {
-            let parts = [];
+              .map((part) => part.text);
 
-            if (typeof message.content === "string") {
-              parts = [
-                {
-                  text: message.content
-                }
-              ];
-            } else if (Array.isArray(message.content)) {
-              parts = message.content
-                .map((part) => {
-                  if (
-                    part?.type === "text" &&
-                    typeof part.text === "string"
-                  ) {
-                    return {
-                      text: part.text
-                    };
-                  }
-
-                  return null;
-                })
-                .filter(Boolean);
+            if (textParts.length) {
+              input.push({
+                type: "text",
+                text:
+                  role === "model"
+                    ? `Assistant: ${textParts.join("\n")}`
+                    : textParts.join("\n")
+              });
             }
+          }
+        }
 
-            if (!parts.length) {
-              parts = [
-                {
-                  text: ""
-                }
-              ];
-            }
-
-            return {
-              role:
-                message.role === "assistant"
-                  ? "model"
-                  : "user",
-              parts
-            };
-          });
-
-        if (!contents.length) {
-          contents.push({
-            role: "user",
-            parts: [
-              {
-                text: "Hello"
-              }
-            ]
+        if (!input.length) {
+          input.push({
+            type: "text",
+            text: "Hello"
           });
         }
 
-        const response = await geminiRequest(
-          "gemini-2.5-flash",
-          {
-            systemInstruction: {
-              parts: [
-                {
-                  text: SYSTEM_INSTRUCTION
-                }
-              ]
-            },
-            contents,
-            generationConfig: {
-              temperature: 0.25,
-              topP: 0.9,
-              maxOutputTokens: 4096
-            }
-          }
-        );
+        const response = await geminiInteraction({
+          model: "gemini-3.8-flash",
+          system_instruction: SYSTEM_INSTRUCTION,
+          input,
+          store: false
+        });
 
-        const text =
-          response?.candidates?.[0]?.content?.parts
-            ?.map((part) => part?.text || "")
-            .join("")
-            .trim() || "";
+        const text = extractText(response);
 
         if (!text) {
           throw new Error(
@@ -215,9 +261,7 @@ M. Rayyan Khan is my owner.
               error?.message ||
               String(error)
           },
-          {
-            status: 500
-          }
+          { status: 500 }
         );
       }
     }
@@ -252,9 +296,7 @@ M. Rayyan Khan is my owner.
             {
               error: "Image is required."
             },
-            {
-              status: 400
-            }
+            { status: 400 }
           );
         }
 
@@ -264,6 +306,7 @@ M. Rayyan Khan is my owner.
             ? body.mimeType.trim()
             : "image/jpeg";
 
+        // Convert data URL into pure base64.
         if (imageData.startsWith("data:")) {
           const match = imageData.match(
             /^data:([^;]+);base64,(.*)$/s
@@ -274,9 +317,7 @@ M. Rayyan Khan is my owner.
               {
                 error: "Invalid image data."
               },
-              {
-                status: 400
-              }
+              { status: 400 }
             );
           }
 
@@ -284,45 +325,27 @@ M. Rayyan Khan is my owner.
           imageData = match[2];
         }
 
-        const response = await geminiRequest(
-          "gemini-2.5-flash",
+        const input = [
           {
-            systemInstruction: {
-              parts: [
-                {
-                  text:
-                    "You are Chatabot's image analysis assistant. Carefully analyze the provided image and answer the user's question directly. Only describe information that can reasonably be determined from the image. Never invent visual details. If something is unclear, say that it is unclear."
-                }
-              ]
-            },
-            contents: [
-              {
-                role: "user",
-                parts: [
-                  {
-                    text: prompt
-                  },
-                  {
-                    inlineData: {
-                      mimeType,
-                      data: imageData
-                    }
-                  }
-                ]
-              }
-            ],
-            generationConfig: {
-              temperature: 0.2,
-              maxOutputTokens: 2048
-            }
+            type: "text",
+            text: prompt
+          },
+          {
+            type: "image",
+            data: imageData,
+            mime_type: mimeType
           }
-        );
+        ];
 
-        const text =
-          response?.candidates?.[0]?.content?.parts
-            ?.map((part) => part?.text || "")
-            .join("")
-            .trim() || "";
+        const response = await geminiInteraction({
+          model: "gemini-3.8-flash",
+          system_instruction:
+            "You are Chatabot's image analysis assistant. Carefully analyze the provided image and answer the user's question directly. Only describe information that can reasonably be determined from the image. Never invent visual details. If something is unclear, say that it is unclear.",
+          input,
+          store: false
+        });
+
+        const text = extractText(response);
 
         if (!text) {
           throw new Error(
@@ -348,9 +371,7 @@ M. Rayyan Khan is my owner.
               error?.message ||
               String(error)
           },
-          {
-            status: 500
-          }
+          { status: 500 }
         );
       }
     }
@@ -375,71 +396,34 @@ M. Rayyan Khan is my owner.
             {
               error: "Image prompt is required."
             },
-            {
-              status: 400
-            }
+            { status: 400 }
           );
         }
 
-        if (!env.GEMINI_API_KEY) {
-          throw new Error(
-            "GEMINI_API_KEY is not configured in Cloudflare."
-          );
-        }
-
-        const response = await fetch(
-          "https://generativelanguage.googleapis.com/v1beta/interactions",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "x-goog-api-key": env.GEMINI_API_KEY
-            },
-            body: JSON.stringify({
-              model: "gemini-3.1-flash-image",
-              input: prompt,
-              response_format: {
-                type: "image",
-                mime_type: "image/png",
-                aspect_ratio: "1:1",
-                image_size: "1K"
-              }
-            })
-          }
-        );
-
-        const raw = await response.text();
-
-        let data;
-
-        try {
-          data = JSON.parse(raw);
-        } catch {
-          data = {
-            error: {
-              message:
-                raw ||
-                "Unknown Gemini image API response."
-            }
-          };
-        }
-
-        if (!response.ok) {
-          throw new Error(
-            data?.error?.message ||
-            `Gemini image API error (${response.status})`
-          );
-        }
+        const response = await geminiInteraction({
+          model: "gemini-3.1-flash-image",
+          input: prompt,
+          response_format: {
+            type: "image",
+            mime_type: "image/png",
+            aspect_ratio: "1:1",
+            image_size: "1K"
+          },
+          store: false
+        });
 
         const imageData =
-          data?.output_image?.data ||
-          data?.steps
-            ?.flatMap(
-              (step) => step?.content || []
+          response?.output_image?.data ||
+          response?.outputs
+            ?.flatMap((item) =>
+              Array.isArray(item?.content)
+                ? item.content
+                : []
             )
             ?.find(
               (content) =>
-                content?.type === "image"
+                content?.type === "image" &&
+                typeof content?.data === "string"
             )
             ?.data ||
           "";
@@ -467,9 +451,7 @@ M. Rayyan Khan is my owner.
               error?.message ||
               String(error)
           },
-          {
-            status: 500
-          }
+          { status: 500 }
         );
       }
     }
