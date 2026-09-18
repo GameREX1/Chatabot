@@ -102,7 +102,6 @@ M. Rayyan Khan is my owner.
             ? body.prompt.trim()
             : "Please analyze this image carefully and explain what you see.";
 
-        // Support both image and imageData from the frontend.
         let image =
           typeof body.image === "string" && body.image.trim()
             ? body.image.trim()
@@ -119,41 +118,35 @@ M. Rayyan Khan is my owner.
           );
         }
 
-        // If the frontend sends raw base64 instead of a data URL,
-        // convert it into the format supported by the Vision model.
-        if (!image.startsWith("data:image/")) {
-          const mimeType =
-            typeof body.mimeType === "string" && body.mimeType.trim()
-              ? body.mimeType.trim()
-              : "image/jpeg";
+        // Remove data URL prefix if the frontend sends one.
+        // Cloudflare's Vision model expects the image itself
+        // as base64 data.
+        if (image.startsWith("data:image/")) {
+          const commaIndex = image.indexOf(",");
 
-          image = `data:${mimeType};base64,${image}`;
+          if (commaIndex !== -1) {
+            image = image.slice(commaIndex + 1);
+          }
         }
 
-        const visionMessages = [
-          {
-            role: "system",
-            content:
-              "You are Chatabot's image analysis assistant. Analyze the provided image carefully. Answer the user's question directly. Only describe information that can reasonably be determined from the image. Do not invent visual details. If something is unclear, say so."
-          },
-          {
-            role: "user",
-            content: prompt
-          }
-        ];
+        // Make sure we only send valid base64 image data.
+        image = image.replace(/\s/g, "");
 
         const response = await env.AI.run(
           "@cf/meta/llama-3.2-11b-vision-instruct",
           {
-            // Include prompt explicitly for the model API schema.
-            prompt,
-
-            // Keep messages for the conversational instruction.
-            messages: visionMessages,
-
-            // Image is sent as a data URL.
+            messages: [
+              {
+                role: "system",
+                content:
+                  "You are Chatabot's image analysis assistant. Analyze the provided image carefully. Answer the user's question directly. Only describe information that can reasonably be determined from the image. Do not invent visual details. If something is unclear, say so."
+              },
+              {
+                role: "user",
+                content: prompt
+              }
+            ],
             image,
-
             max_tokens: 2048,
             temperature: 0.2
           }
@@ -162,16 +155,12 @@ M. Rayyan Khan is my owner.
         return Response.json(response);
 
       } catch (error) {
-        console.error("Image analysis error:", error);
+        console.error("Chatabot Vision error:", error);
 
         return Response.json(
           {
             error: "Image analysis error",
-            details:
-              error?.message ||
-              (typeof error === "string"
-                ? error
-                : JSON.stringify(error))
+            details: error?.message || String(error)
           },
           { status: 500 }
         );
