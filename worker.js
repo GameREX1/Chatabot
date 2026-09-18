@@ -23,7 +23,7 @@ CORE BEHAVIOR:
 - Understand the user's actual intent before answering.
 - Give direct, useful and complete answers.
 - Do not unnecessarily repeat the user's question.
-- Use the conversation history to maintain context.
+- Use conversation history to maintain context.
 - If the user asks a follow-up question, connect it to previous messages.
 - Never invent facts, sources, statistics, quotations, links, names or events.
 - If information is uncertain, clearly say so.
@@ -35,7 +35,6 @@ REASONING:
 - For mathematics, calculate carefully and verify the result.
 - For programming, reason about the code before suggesting changes.
 - When debugging, identify the likely cause before proposing a fix.
-- When multiple solutions exist, explain the important differences.
 
 CODING:
 - Provide complete working code when appropriate.
@@ -102,7 +101,7 @@ M. Rayyan Khan is my owner.
             ? body.prompt.trim()
             : "Please analyze this image carefully and explain what you see.";
 
-        let image =
+        const image =
           typeof body.image === "string" && body.image.trim()
             ? body.image.trim()
             : typeof body.imageData === "string" && body.imageData.trim()
@@ -118,19 +117,12 @@ M. Rayyan Khan is my owner.
           );
         }
 
-        // Remove data URL prefix if the frontend sends one.
-        // Cloudflare's Vision model expects the image itself
-        // as base64 data.
-        if (image.startsWith("data:image/")) {
-          const commaIndex = image.indexOf(",");
-
-          if (commaIndex !== -1) {
-            image = image.slice(commaIndex + 1);
-          }
-        }
-
-        // Make sure we only send valid base64 image data.
-        image = image.replace(/\s/g, "");
+        /*
+         * Cloudflare Workers AI Vision
+         *
+         * The model accepts an image together with messages.
+         * Keep the image as the data URL supplied by the frontend.
+         */
 
         const response = await env.AI.run(
           "@cf/meta/llama-3.2-11b-vision-instruct",
@@ -139,14 +131,27 @@ M. Rayyan Khan is my owner.
               {
                 role: "system",
                 content:
-                  "You are Chatabot's image analysis assistant. Analyze the provided image carefully. Answer the user's question directly. Only describe information that can reasonably be determined from the image. Do not invent visual details. If something is unclear, say so."
+                  "You are Chatabot's image analysis assistant. Carefully analyze the provided image and answer the user's question directly. Only describe information that can reasonably be determined from the image. Never invent visual details. If something is unclear, say that it is unclear."
               },
               {
                 role: "user",
-                content: prompt
+                content: [
+                  {
+                    type: "text",
+                    text: prompt
+                  },
+                  {
+                    type: "image_url",
+                    image_url: {
+                      url: image
+                    }
+                  }
+                ]
               }
             ],
-            image,
+
+            // Cloudflare Vision model parameters
+            image: image,
             max_tokens: 2048,
             temperature: 0.2
           }
