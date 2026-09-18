@@ -6,6 +6,10 @@ export default {
     // GEMINI HELPER
     // =========================
     async function geminiRequest(model, payload) {
+      if (!env.GEMINI_API_KEY) {
+        throw new Error("GEMINI_API_KEY is not configured in Cloudflare.");
+      }
+
       const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
         {
@@ -18,7 +22,19 @@ export default {
         }
       );
 
-      const data = await response.json();
+      const raw = await response.text();
+
+      let data;
+
+      try {
+        data = JSON.parse(raw);
+      } catch {
+        data = {
+          error: {
+            message: raw || "Unknown Gemini API response."
+          }
+        };
+      }
 
       if (!response.ok) {
         throw new Error(
@@ -91,9 +107,11 @@ M. Rayyan Khan is my owner.
           .filter(
             (message) =>
               message &&
-              (message.role === "user" ||
+              (
+                message.role === "user" ||
                 message.role === "assistant" ||
-                message.role === "model")
+                message.role === "model"
+              )
           )
           .map((message) => {
             let parts = [];
@@ -130,9 +148,10 @@ M. Rayyan Khan is my owner.
             }
 
             return {
-              role: message.role === "assistant"
-                ? "model"
-                : "user",
+              role:
+                message.role === "assistant"
+                  ? "model"
+                  : "user",
               parts
             };
           });
@@ -149,7 +168,7 @@ M. Rayyan Khan is my owner.
         }
 
         const response = await geminiRequest(
-          "gemini-3.8-flash",
+          "gemini-2.5-flash",
           {
             systemInstruction: {
               parts: [
@@ -173,19 +192,32 @@ M. Rayyan Khan is my owner.
             .join("")
             .trim() || "";
 
+        if (!text) {
+          throw new Error(
+            "Gemini returned an empty response."
+          );
+        }
+
         return Response.json({
           response: text
         });
 
       } catch (error) {
-        console.error("Chatabot Gemini chat error:", error);
+        console.error(
+          "Chatabot Gemini chat error:",
+          error
+        );
 
         return Response.json(
           {
             error: "Chatabot AI error",
-            details: error?.message || String(error)
+            details:
+              error?.message ||
+              String(error)
           },
-          { status: 500 }
+          {
+            status: 500
+          }
         );
       }
     }
@@ -193,19 +225,25 @@ M. Rayyan Khan is my owner.
     // =========================
     // IMAGE ANALYSIS
     // =========================
-    if (url.pathname === "/api/vision" && request.method === "POST") {
+    if (
+      url.pathname === "/api/vision" &&
+      request.method === "POST"
+    ) {
       try {
         const body = await request.json();
 
         const prompt =
-          typeof body.prompt === "string" && body.prompt.trim()
+          typeof body.prompt === "string" &&
+          body.prompt.trim()
             ? body.prompt.trim()
             : "Please analyze this image carefully and explain what you see.";
 
         let imageData =
-          typeof body.image === "string" && body.image.trim()
+          typeof body.image === "string" &&
+          body.image.trim()
             ? body.image.trim()
-            : typeof body.imageData === "string" && body.imageData.trim()
+            : typeof body.imageData === "string" &&
+              body.imageData.trim()
               ? body.imageData.trim()
               : "";
 
@@ -214,16 +252,18 @@ M. Rayyan Khan is my owner.
             {
               error: "Image is required."
             },
-            { status: 400 }
+            {
+              status: 400
+            }
           );
         }
 
         let mimeType =
-          typeof body.mimeType === "string" && body.mimeType.trim()
+          typeof body.mimeType === "string" &&
+          body.mimeType.trim()
             ? body.mimeType.trim()
             : "image/jpeg";
 
-        // Convert data URL into pure base64.
         if (imageData.startsWith("data:")) {
           const match = imageData.match(
             /^data:([^;]+);base64,(.*)$/s
@@ -234,7 +274,9 @@ M. Rayyan Khan is my owner.
               {
                 error: "Invalid image data."
               },
-              { status: 400 }
+              {
+                status: 400
+              }
             );
           }
 
@@ -243,7 +285,7 @@ M. Rayyan Khan is my owner.
         }
 
         const response = await geminiRequest(
-          "gemini-3.8-flash",
+          "gemini-2.5-flash",
           {
             systemInstruction: {
               parts: [
@@ -282,20 +324,33 @@ M. Rayyan Khan is my owner.
             .join("")
             .trim() || "";
 
+        if (!text) {
+          throw new Error(
+            "Gemini returned an empty image analysis response."
+          );
+        }
+
         return Response.json({
           response: text,
           analysis: text
         });
 
       } catch (error) {
-        console.error("Chatabot Gemini Vision error:", error);
+        console.error(
+          "Chatabot Gemini Vision error:",
+          error
+        );
 
         return Response.json(
           {
             error: "Image analysis error",
-            details: error?.message || String(error)
+            details:
+              error?.message ||
+              String(error)
           },
-          { status: 500 }
+          {
+            status: 500
+          }
         );
       }
     }
@@ -303,7 +358,10 @@ M. Rayyan Khan is my owner.
     // =========================
     // IMAGE GENERATION
     // =========================
-    if (url.pathname === "/api/image" && request.method === "POST") {
+    if (
+      url.pathname === "/api/image" &&
+      request.method === "POST"
+    ) {
       try {
         const body = await request.json();
 
@@ -317,7 +375,15 @@ M. Rayyan Khan is my owner.
             {
               error: "Image prompt is required."
             },
-            { status: 400 }
+            {
+              status: 400
+            }
+          );
+        }
+
+        if (!env.GEMINI_API_KEY) {
+          throw new Error(
+            "GEMINI_API_KEY is not configured in Cloudflare."
           );
         }
 
@@ -342,7 +408,21 @@ M. Rayyan Khan is my owner.
           }
         );
 
-        const data = await response.json();
+        const raw = await response.text();
+
+        let data;
+
+        try {
+          data = JSON.parse(raw);
+        } catch {
+          data = {
+            error: {
+              message:
+                raw ||
+                "Unknown Gemini image API response."
+            }
+          };
+        }
 
         if (!response.ok) {
           throw new Error(
@@ -354,13 +434,20 @@ M. Rayyan Khan is my owner.
         const imageData =
           data?.output_image?.data ||
           data?.steps
-            ?.flatMap((step) => step?.content || [])
-            ?.find((content) => content?.type === "image")
+            ?.flatMap(
+              (step) => step?.content || []
+            )
+            ?.find(
+              (content) =>
+                content?.type === "image"
+            )
             ?.data ||
           "";
 
         if (!imageData) {
-          throw new Error("Gemini did not return an image.");
+          throw new Error(
+            "Gemini did not return an image."
+          );
         }
 
         return Response.json({
@@ -368,14 +455,21 @@ M. Rayyan Khan is my owner.
         });
 
       } catch (error) {
-        console.error("Chatabot Gemini image generation error:", error);
+        console.error(
+          "Chatabot Gemini image generation error:",
+          error
+        );
 
         return Response.json(
           {
             error: "Image generation error",
-            details: error?.message || String(error)
+            details:
+              error?.message ||
+              String(error)
           },
-          { status: 500 }
+          {
+            status: 500
+          }
         );
       }
     }
