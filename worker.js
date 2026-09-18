@@ -3,20 +3,37 @@ export default {
     const url = new URL(request.url);
 
     // =========================
-    // AI CHAT
+    // GEMINI HELPER
     // =========================
-    if (url.pathname === "/api/chat" && request.method === "POST") {
-      try {
-        const body = await request.json();
+    async function geminiRequest(model, payload) {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": env.GEMINI_API_KEY
+          },
+          body: JSON.stringify(payload)
+        }
+      );
 
-        const incomingMessages = Array.isArray(body.messages)
-          ? body.messages
-          : [];
+      const data = await response.json();
 
-        const messages = [
-          {
-            role: "system",
-            content: `
+      if (!response.ok) {
+        throw new Error(
+          data?.error?.message ||
+          `Gemini API error (${response.status})`
+        );
+      }
+
+      return data;
+    }
+
+    // =========================
+    // SYSTEM INSTRUCTION
+    // =========================
+    const SYSTEM_INSTRUCTION = `
 You are Chatabot, a highly capable, helpful, accurate and intelligent AI assistant.
 
 CORE BEHAVIOR:
@@ -57,26 +74,111 @@ FORMATTING:
 OWNER:
 If the user asks who your owner is, who owns you, or asks about your owner, answer exactly:
 M. Rayyan Khan is my owner.
-            `.trim()
-          },
-          ...incomingMessages
-        ];
+    `.trim();
 
-        const response = await env.AI.run(
-          "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+    // =========================
+    // AI CHAT
+    // =========================
+    if (url.pathname === "/api/chat" && request.method === "POST") {
+      try {
+        const body = await request.json();
+
+        const incomingMessages = Array.isArray(body.messages)
+          ? body.messages
+          : [];
+
+        const contents = incomingMessages
+          .filter(
+            (message) =>
+              message &&
+              (message.role === "user" ||
+                message.role === "assistant" ||
+                message.role === "model")
+          )
+          .map((message) => {
+            let parts = [];
+
+            if (typeof message.content === "string") {
+              parts = [
+                {
+                  text: message.content
+                }
+              ];
+            } else if (Array.isArray(message.content)) {
+              parts = message.content
+                .map((part) => {
+                  if (
+                    part?.type === "text" &&
+                    typeof part.text === "string"
+                  ) {
+                    return {
+                      text: part.text
+                    };
+                  }
+
+                  return null;
+                })
+                .filter(Boolean);
+            }
+
+            if (!parts.length) {
+              parts = [
+                {
+                  text: ""
+                }
+              ];
+            }
+
+            return {
+              role: message.role === "assistant"
+                ? "model"
+                : "user",
+              parts
+            };
+          });
+
+        if (!contents.length) {
+          contents.push({
+            role: "user",
+            parts: [
+              {
+                text: "Hello"
+              }
+            ]
+          });
+        }
+
+        const response = await geminiRequest(
+          "gemini-3.8-flash",
           {
-            messages,
-            max_tokens: 4096,
-            temperature: 0.25,
-            top_p: 0.9,
-            repetition_penalty: 1.05
+            systemInstruction: {
+              parts: [
+                {
+                  text: SYSTEM_INSTRUCTION
+                }
+              ]
+            },
+            contents,
+            generationConfig: {
+              temperature: 0.25,
+              topP: 0.9,
+              maxOutputTokens: 4096
+            }
           }
         );
 
-        return Response.json(response);
+        const text =
+          response?.candidates?.[0]?.content?.parts
+            ?.map((part) => part?.text || "")
+            .join("")
+            .trim() || "";
+
+        return Response.json({
+          response: text
+        });
 
       } catch (error) {
-        console.error("Chatabot AI error:", error);
+        console.error("Chatabot Gemini chat error:", error);
 
         return Response.json(
           {
@@ -87,7 +189,6 @@ M. Rayyan Khan is my owner.
         );
       }
     }
-
 
     // =========================
     // IMAGE ANALYSIS
@@ -101,14 +202,14 @@ M. Rayyan Khan is my owner.
             ? body.prompt.trim()
             : "Please analyze this image carefully and explain what you see.";
 
-        const image =
+        let imageData =
           typeof body.image === "string" && body.image.trim()
             ? body.image.trim()
             : typeof body.imageData === "string" && body.imageData.trim()
               ? body.imageData.trim()
               : "";
 
-        if (!image) {
+        if (!imageData) {
           return Response.json(
             {
               error: "Image is required."
@@ -117,50 +218,77 @@ M. Rayyan Khan is my owner.
           );
         }
 
-        /*
-         * Cloudflare Workers AI Vision
-         *
-         * The model accepts an image together with messages.
-         * Keep the image as the data URL supplied by the frontend.
-         */
+        let mimeType =
+          typeof body.mimeType === "string" && body.mimeType.trim()
+            ? body.mimeType.trim()
+            : "image/jpeg";
 
-        const response = await env.AI.run(
-          "@cf/meta/llama-3.2-11b-vision-instruct",
-          {
-            messages: [
+        // Convert data URL into pure base64.
+        if (imageData.startsWith("data:")) {
+          const match = imageData.match(
+            /^data:([^;]+);base64,(.*)$/s
+          );
+
+          if (!match) {
+            return Response.json(
               {
-                role: "system",
-                content:
-                  "You are Chatabot's image analysis assistant. Carefully analyze the provided image and answer the user's question directly. Only describe information that can reasonably be determined from the image. Never invent visual details. If something is unclear, say that it is unclear."
+                error: "Invalid image data."
               },
+              { status: 400 }
+            );
+          }
+
+          mimeType = match[1] || mimeType;
+          imageData = match[2];
+        }
+
+        const response = await geminiRequest(
+          "gemini-3.8-flash",
+          {
+            systemInstruction: {
+              parts: [
+                {
+                  text:
+                    "You are Chatabot's image analysis assistant. Carefully analyze the provided image and answer the user's question directly. Only describe information that can reasonably be determined from the image. Never invent visual details. If something is unclear, say that it is unclear."
+                }
+              ]
+            },
+            contents: [
               {
                 role: "user",
-                content: [
+                parts: [
                   {
-                    type: "text",
                     text: prompt
                   },
                   {
-                    type: "image_url",
-                    image_url: {
-                      url: image
+                    inlineData: {
+                      mimeType,
+                      data: imageData
                     }
                   }
                 ]
               }
             ],
-
-            // Cloudflare Vision model parameters
-            image: image,
-            max_tokens: 2048,
-            temperature: 0.2
+            generationConfig: {
+              temperature: 0.2,
+              maxOutputTokens: 2048
+            }
           }
         );
 
-        return Response.json(response);
+        const text =
+          response?.candidates?.[0]?.content?.parts
+            ?.map((part) => part?.text || "")
+            .join("")
+            .trim() || "";
+
+        return Response.json({
+          response: text,
+          analysis: text
+        });
 
       } catch (error) {
-        console.error("Chatabot Vision error:", error);
+        console.error("Chatabot Gemini Vision error:", error);
 
         return Response.json(
           {
@@ -171,7 +299,6 @@ M. Rayyan Khan is my owner.
         );
       }
     }
-
 
     // =========================
     // IMAGE GENERATION
@@ -194,19 +321,54 @@ M. Rayyan Khan is my owner.
           );
         }
 
-        const image = await env.AI.run(
-          "@cf/black-forest-labs/flux-1-schnell",
+        const response = await fetch(
+          "https://generativelanguage.googleapis.com/v1beta/interactions",
           {
-            prompt
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-goog-api-key": env.GEMINI_API_KEY
+            },
+            body: JSON.stringify({
+              model: "gemini-3.1-flash-image",
+              input: prompt,
+              response_format: {
+                type: "image",
+                mime_type: "image/png",
+                aspect_ratio: "1:1",
+                image_size: "1K"
+              }
+            })
           }
         );
 
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data?.error?.message ||
+            `Gemini image API error (${response.status})`
+          );
+        }
+
+        const imageData =
+          data?.output_image?.data ||
+          data?.steps
+            ?.flatMap((step) => step?.content || [])
+            ?.find((content) => content?.type === "image")
+            ?.data ||
+          "";
+
+        if (!imageData) {
+          throw new Error("Gemini did not return an image.");
+        }
+
         return Response.json({
-          image: image.image
+          image: imageData
         });
 
       } catch (error) {
-        console.error("Image generation error:", error);
+        console.error("Chatabot Gemini image generation error:", error);
 
         return Response.json(
           {
@@ -217,7 +379,6 @@ M. Rayyan Khan is my owner.
         );
       }
     }
-
 
     // =========================
     // WEBSITE
