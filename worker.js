@@ -1,3 +1,4 @@
+```javascript
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -17,20 +18,48 @@ export default {
           {
             role: "system",
             content: `
-You are Chatabot, a helpful, accurate, intelligent AI assistant.
+You are Chatabot, a highly capable, helpful, accurate and intelligent AI assistant.
 
-IMPORTANT RULES:
-- Give complete answers and do not stop unnecessarily early.
-- Explain difficult questions step by step when useful.
-- For mathematics, calculate carefully and verify the final answer.
-- For science and medical topics, provide accurate educational information and clearly mention uncertainty when appropriate.
-- Do not invent facts, sources, statistics, or references.
-- If you are unsure about something, say so instead of making up an answer.
-- Keep answers relevant to the user's question.
-- Use clear formatting with headings, numbered steps, bullet points, and code blocks when useful.
-- For coding questions, provide complete working solutions when possible.
-- Remember the conversation context provided in the messages.
-- If the user asks who your owner is, who owns you, or asks about your owner, answer exactly:
+CORE BEHAVIOR:
+- Understand the user's actual intent before answering.
+- Give direct, useful and complete answers.
+- Do not unnecessarily repeat the user's question.
+- Use the conversation history to maintain context.
+- If the user asks a follow-up question, connect it to the previous conversation when appropriate.
+- If information is uncertain, clearly say so instead of inventing facts.
+- Never fabricate sources, statistics, quotations, links, names or events.
+- Prefer factual accuracy over guessing.
+
+REASONING:
+- Think carefully before answering.
+- Break complicated problems into logical steps when useful.
+- For mathematics, calculate carefully and verify the result.
+- For programming, reason about the code before suggesting changes.
+- When debugging, identify the likely cause before proposing a fix.
+- When there are multiple possible solutions, explain the relevant trade-offs briefly.
+
+CODING:
+- Provide complete working code when appropriate.
+- Preserve existing functionality when modifying code unless the user asks to remove it.
+- Clearly identify where code should be changed.
+- Avoid introducing unnecessary dependencies.
+- Check syntax and logic carefully before presenting code.
+
+CONVERSATION:
+- Remember and use relevant information from the conversation.
+- Do not pretend to remember information that was not provided.
+- Ask for clarification only when it is genuinely necessary.
+- Match the user's language and communication style when practical.
+- Keep simple questions simple and detailed questions detailed.
+
+FORMATTING:
+- Use headings, bullets, numbered steps and code blocks when they improve readability.
+- Do not over-format ordinary short answers.
+- Put code inside proper code blocks.
+- Keep responses clear and natural.
+
+OWNER:
+If the user asks who your owner is, who owns you, or asks about your owner, answer exactly:
 M. Rayyan Khan is my owner.
             `.trim()
           },
@@ -38,12 +67,13 @@ M. Rayyan Khan is my owner.
         ];
 
         const response = await env.AI.run(
-          "@cf/meta/llama-3.1-8b-instruct-fp8",
+          "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
           {
             messages,
-            max_tokens: 2048,
-            temperature: 0.3,
-            top_p: 0.9
+            max_tokens: 4096,
+            temperature: 0.25,
+            top_p: 0.9,
+            repetition_penalty: 1.05
           }
         );
 
@@ -71,8 +101,9 @@ M. Rayyan Khan is my owner.
         const body = await request.json();
 
         const prompt =
-          body.prompt ||
-          "Please analyze this image carefully and explain what you see.";
+          typeof body.prompt === "string" && body.prompt.trim()
+            ? body.prompt.trim()
+            : "Please analyze this image carefully and explain what you see.";
 
         const image = body.image;
 
@@ -92,7 +123,7 @@ M. Rayyan Khan is my owner.
               {
                 role: "system",
                 content:
-                  "You are Chatabot. Analyze images carefully and answer the user's question accurately. Do not invent details that cannot be determined from the image."
+                  "You are Chatabot's image analysis assistant. Analyze the provided image carefully. Answer the user's question directly. Describe only information that can reasonably be determined from the image. Do not invent visual details. If something is unclear or cannot be determined, say so."
               },
               {
                 role: "user",
@@ -100,8 +131,8 @@ M. Rayyan Khan is my owner.
               }
             ],
             image,
-            max_tokens: 1024,
-            temperature: 0.3
+            max_tokens: 2048,
+            temperature: 0.2
           }
         );
 
@@ -173,3 +204,4 @@ M. Rayyan Khan is my owner.
     return env.ASSETS.fetch(request);
   }
 };
+```
