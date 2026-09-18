@@ -102,7 +102,13 @@ M. Rayyan Khan is my owner.
             ? body.prompt.trim()
             : "Please analyze this image carefully and explain what you see.";
 
-        const image = body.image;
+        // Support both image and imageData from the frontend.
+        let image =
+          typeof body.image === "string" && body.image.trim()
+            ? body.image.trim()
+            : typeof body.imageData === "string" && body.imageData.trim()
+              ? body.imageData.trim()
+              : "";
 
         if (!image) {
           return Response.json(
@@ -113,21 +119,41 @@ M. Rayyan Khan is my owner.
           );
         }
 
+        // If the frontend sends raw base64 instead of a data URL,
+        // convert it into the format supported by the Vision model.
+        if (!image.startsWith("data:image/")) {
+          const mimeType =
+            typeof body.mimeType === "string" && body.mimeType.trim()
+              ? body.mimeType.trim()
+              : "image/jpeg";
+
+          image = `data:${mimeType};base64,${image}`;
+        }
+
+        const visionMessages = [
+          {
+            role: "system",
+            content:
+              "You are Chatabot's image analysis assistant. Analyze the provided image carefully. Answer the user's question directly. Only describe information that can reasonably be determined from the image. Do not invent visual details. If something is unclear, say so."
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ];
+
         const response = await env.AI.run(
           "@cf/meta/llama-3.2-11b-vision-instruct",
           {
-            messages: [
-              {
-                role: "system",
-                content:
-                  "You are Chatabot's image analysis assistant. Analyze the provided image carefully. Answer the user's question directly. Only describe information that can reasonably be determined from the image. Do not invent visual details. If something is unclear, say so."
-              },
-              {
-                role: "user",
-                content: prompt
-              }
-            ],
+            // Include prompt explicitly for the model API schema.
+            prompt,
+
+            // Keep messages for the conversational instruction.
+            messages: visionMessages,
+
+            // Image is sent as a data URL.
             image,
+
             max_tokens: 2048,
             temperature: 0.2
           }
@@ -141,7 +167,11 @@ M. Rayyan Khan is my owner.
         return Response.json(
           {
             error: "Image analysis error",
-            details: error?.message || String(error)
+            details:
+              error?.message ||
+              (typeof error === "string"
+                ? error
+                : JSON.stringify(error))
           },
           { status: 500 }
         );
