@@ -12,5 +12,13 @@
 
   "ai": {
     "binding": "AI"
+  },
+
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "enabled": true,
+      "invocation_logs": true
+    }
   }
 }
