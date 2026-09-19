@@ -1,3 +1,4 @@
+```js
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -5,9 +6,6 @@ export default {
     // =========================================================
     // CHATBOT CONFIG
     // =========================================================
-    // Free-tier Gemini model for text + image/video understanding.
-    // We intentionally do NOT call paid image/video generation
-    // models from this worker.
     const CHAT_MODEL = "gemini-2.5-flash";
 
     // =========================================================
@@ -76,11 +74,20 @@ export default {
       }
 
       if (!response.ok) {
-        throw new Error(
+        const errorMessage =
           data?.error?.message ||
           data?.message ||
           data?.raw ||
-          `Gemini API error (${response.status})`
+          `Gemini API error (${response.status})`;
+
+        console.error("Gemini API failure:", {
+          status: response.status,
+          statusText: response.statusText,
+          error: data
+        });
+
+        throw new Error(
+          `[Gemini ${response.status}] ${errorMessage}`
         );
       }
 
@@ -88,7 +95,7 @@ export default {
     }
 
     // =========================================================
-    // EXTRACT TEXT FROM GEMINI INTERACTION
+    // EXTRACT TEXT FROM GEMINI RESPONSE
     // =========================================================
     function extractText(data) {
       if (
@@ -306,9 +313,7 @@ M. Rayyan Khan is my owner.
 
           if (!role) continue;
 
-          // -----------------------------------------
           // STRING MESSAGE
-          // -----------------------------------------
           if (typeof message.content === "string") {
             const text = message.content.trim();
 
@@ -325,9 +330,7 @@ M. Rayyan Khan is my owner.
             continue;
           }
 
-          // -----------------------------------------
           // MULTIMODAL MESSAGE
-          // -----------------------------------------
           if (Array.isArray(message.content)) {
             for (const part of message.content) {
               if (!part) continue;
@@ -363,7 +366,6 @@ M. Rayyan Khan is my owner.
                     ? part.mime_type.trim()
                     : "image/jpeg";
 
-                // Support data URLs
                 if (imageData.startsWith("data:")) {
                   const match = imageData.match(
                     /^data:([^;]+);base64,(.*)$/s
@@ -470,9 +472,6 @@ M. Rayyan Khan is my owner.
             ? body.mimeType.trim()
             : "image/jpeg";
 
-        // -----------------------------------------
-        // Convert data URL to pure base64
-        // -----------------------------------------
         if (imageData.startsWith("data:")) {
           const match = imageData.match(
             /^data:([^;]+);base64,(.*)$/s
@@ -557,12 +556,6 @@ Rules:
     // =========================================================
     // IMAGE GENERATION
     // =========================================================
-    // Intentionally disabled in the free-only worker.
-    //
-    // Google's current Gemini API pricing does not list
-    // Nano Banana image generation as having a free tier.
-    // This prevents accidental paid API usage.
-    // =========================================================
     if (
       url.pathname === "/api/image" &&
       request.method === "POST"
@@ -580,11 +573,6 @@ Rules:
     // =========================================================
     // VIDEO GENERATION
     // =========================================================
-    // Intentionally disabled in the free-only worker.
-    //
-    // Veo / Gemini Omni video generation can incur API charges,
-    // so this worker never calls those models automatically.
-    // =========================================================
     if (
       url.pathname === "/api/video" &&
       request.method === "POST"
@@ -597,6 +585,50 @@ Rules:
         },
         403
       );
+    }
+
+    // =========================================================
+    // GEMINI DIRECT TEST
+    // =========================================================
+    // Temporary diagnostic endpoint.
+    // Open /api/test-gemini in your browser after deployment.
+    // =========================================================
+    if (
+      url.pathname === "/api/test-gemini" &&
+      request.method === "GET"
+    ) {
+      try {
+        const response = await geminiInteraction({
+          model: CHAT_MODEL,
+          input: "Reply with exactly: Chatabot Gemini test successful.",
+          store: false
+        });
+
+        const text = extractText(response);
+
+        return jsonResponse({
+          ok: true,
+          model: CHAT_MODEL,
+          response: text || null
+        });
+
+      } catch (error) {
+        console.error(
+          "Chatabot Gemini TEST error:",
+          error
+        );
+
+        return jsonResponse(
+          {
+            ok: false,
+            model: CHAT_MODEL,
+            error:
+              error?.message ||
+              String(error)
+          },
+          500
+        );
+      }
     }
 
     // =========================================================
@@ -623,3 +655,4 @@ Rules:
     return env.ASSETS.fetch(request);
   }
 };
+```
