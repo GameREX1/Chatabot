@@ -1,5 +1,4 @@
 {
-  "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "chatabot",
   "main": "./worker.js",
   "compatibility_date": "2026-09-01",
