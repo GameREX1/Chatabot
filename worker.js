@@ -2,10 +2,55 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
-    // =========================
+    // =========================================================
+    // CHATBOT CONFIG
+    // =========================================================
+    // Free-tier Gemini model for text + image/video understanding.
+    // We intentionally do NOT call paid image/video generation
+    // models from this worker.
+    const CHAT_MODEL = "gemini-2.5-flash";
+
+    // =========================================================
+    // CORS
+    // =========================================================
+    function corsHeaders() {
+      return {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization"
+      };
+    }
+
+    function jsonResponse(data, status = 200) {
+      return new Response(JSON.stringify(data), {
+        status,
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+          ...corsHeaders()
+        }
+      });
+    }
+
+    // =========================================================
+    // OPTIONS / CORS PREFLIGHT
+    // =========================================================
+    if (request.method === "OPTIONS") {
+      return new Response(null, {
+        status: 204,
+        headers: corsHeaders()
+      });
+    }
+
+    // =========================================================
     // GEMINI INTERACTIONS HELPER
-    // =========================
+    // =========================================================
     async function geminiInteraction(payload) {
+      if (!env.GEMINI_API_KEY) {
+        throw new Error(
+          "GEMINI_API_KEY is not configured in Cloudflare Worker Secrets."
+        );
+      }
+
       const response = await fetch(
         "https://generativelanguage.googleapis.com/v1beta/interactions",
         {
@@ -18,12 +63,23 @@ export default {
         }
       );
 
-      const data = await response.json();
+      const rawText = await response.text();
+
+      let data;
+
+      try {
+        data = JSON.parse(rawText);
+      } catch {
+        data = {
+          raw: rawText
+        };
+      }
 
       if (!response.ok) {
         throw new Error(
           data?.error?.message ||
           data?.message ||
+          data?.raw ||
           `Gemini API error (${response.status})`
         );
       }
@@ -31,11 +87,14 @@ export default {
       return data;
     }
 
-    // =========================
-    // EXTRACT TEXT FROM INTERACTION
-    // =========================
+    // =========================================================
+    // EXTRACT TEXT FROM GEMINI INTERACTION
+    // =========================================================
     function extractText(data) {
-      if (typeof data?.output_text === "string") {
+      if (
+        typeof data?.output_text === "string" &&
+        data.output_text.trim()
+      ) {
         return data.output_text.trim();
       }
 
@@ -44,16 +103,13 @@ export default {
         : [];
 
       const outputText = outputs
-        .filter(
-          (item) =>
-            item &&
-            (
-              item.type === "text" ||
-              item.type === "model_output"
-            )
-        )
         .flatMap((item) => {
-          if (typeof item.text === "string") {
+          if (!item) return [];
+
+          if (
+            typeof item.text === "string" &&
+            item.text.trim()
+          ) {
             return [item.text];
           }
 
@@ -62,7 +118,10 @@ export default {
               .filter(
                 (content) =>
                   content &&
-                  content.type === "text" &&
+                  (
+                    content.type === "text" ||
+                    content.type === "output_text"
+                  ) &&
                   typeof content.text === "string"
               )
               .map((content) => content.text);
@@ -70,7 +129,7 @@ export default {
 
           return [];
         })
-        .join("")
+        .join("\n")
         .trim();
 
       if (outputText) {
@@ -81,17 +140,14 @@ export default {
         ? data.steps
         : [];
 
-      return steps
-        .filter(
-          (step) =>
-            step &&
-            (
-              step.type === "model_output" ||
-              step.type === "text"
-            )
-        )
+      const stepText = steps
         .flatMap((step) => {
-          if (typeof step.text === "string") {
+          if (!step) return [];
+
+          if (
+            typeof step.text === "string" &&
+            step.text.trim()
+          ) {
             return [step.text];
           }
 
@@ -100,7 +156,10 @@ export default {
               .filter(
                 (content) =>
                   content &&
-                  content.type === "text" &&
+                  (
+                    content.type === "text" ||
+                    content.type === "output_text"
+                  ) &&
                   typeof content.text === "string"
               )
               .map((content) => content.text);
@@ -108,13 +167,63 @@ export default {
 
           return [];
         })
-        .join("")
+        .join("\n")
         .trim();
+
+      return stepText;
     }
 
-    // =========================
+    // =========================================================
+    // EXTRACT IMAGE FROM GEMINI RESPONSE
+    // =========================================================
+    function extractImage(data) {
+      if (
+        typeof data?.output_image?.data === "string" &&
+        data.output_image.data
+      ) {
+        return data.output_image.data;
+      }
+
+      const steps = Array.isArray(data?.steps)
+        ? data.steps
+        : [];
+
+      for (const step of steps) {
+        if (!Array.isArray(step?.content)) continue;
+
+        for (const content of step.content) {
+          if (
+            content?.type === "image" &&
+            typeof content.data === "string"
+          ) {
+            return content.data;
+          }
+        }
+      }
+
+      const outputs = Array.isArray(data?.outputs)
+        ? data.outputs
+        : [];
+
+      for (const output of outputs) {
+        if (!Array.isArray(output?.content)) continue;
+
+        for (const content of output.content) {
+          if (
+            content?.type === "image" &&
+            typeof content.data === "string"
+          ) {
+            return content.data;
+          }
+        }
+      }
+
+      return "";
+    }
+
+    // =========================================================
     // SYSTEM INSTRUCTION
-    // =========================
+    // =========================================================
     const SYSTEM_INSTRUCTION = `
 You are Chatabot, a highly capable, helpful, accurate and intelligent AI assistant.
 
@@ -134,6 +243,15 @@ REASONING:
 - For mathematics, calculate carefully and verify the result.
 - For programming, reason about the code before suggesting changes.
 - When debugging, identify the likely cause before proposing a fix.
+
+VISION:
+- You can analyze images supplied by the user.
+- Carefully inspect the image before answering.
+- Only describe things that can reasonably be determined from the image.
+- Never invent visual details.
+- If something is unclear, say that it is unclear.
+- If the user asks about text inside an image, read it carefully.
+- If the image contains code, explain or debug it when requested.
 
 CODING:
 - Provide complete working code when appropriate.
@@ -158,9 +276,9 @@ If the user asks who your owner is, who owns you, or asks about your owner, answ
 M. Rayyan Khan is my owner.
 `.trim();
 
-    // =========================
+    // =========================================================
     // AI CHAT
-    // =========================
+    // =========================================================
     if (
       url.pathname === "/api/chat" &&
       request.method === "POST"
@@ -168,7 +286,7 @@ M. Rayyan Khan is my owner.
       try {
         const body = await request.json();
 
-        const incomingMessages = Array.isArray(body.messages)
+        const incomingMessages = Array.isArray(body?.messages)
           ? body.messages
           : [];
 
@@ -188,36 +306,81 @@ M. Rayyan Khan is my owner.
 
           if (!role) continue;
 
+          // -----------------------------------------
+          // STRING MESSAGE
+          // -----------------------------------------
           if (typeof message.content === "string") {
+            const text = message.content.trim();
+
+            if (!text) continue;
+
             input.push({
               type: "text",
               text:
                 role === "model"
-                  ? `Assistant: ${message.content}`
-                  : message.content
+                  ? `Assistant: ${text}`
+                  : text
             });
 
             continue;
           }
 
+          // -----------------------------------------
+          // MULTIMODAL MESSAGE
+          // -----------------------------------------
           if (Array.isArray(message.content)) {
-            const textParts = message.content
-              .filter(
-                (part) =>
-                  part &&
-                  part.type === "text" &&
-                  typeof part.text === "string"
-              )
-              .map((part) => part.text);
+            for (const part of message.content) {
+              if (!part) continue;
 
-            if (textParts.length) {
-              input.push({
-                type: "text",
-                text:
-                  role === "model"
-                    ? `Assistant: ${textParts.join("\n")}`
-                    : textParts.join("\n")
-              });
+              // Text part
+              if (
+                part.type === "text" &&
+                typeof part.text === "string" &&
+                part.text.trim()
+              ) {
+                input.push({
+                  type: "text",
+                  text:
+                    role === "model"
+                      ? `Assistant: ${part.text.trim()}`
+                      : part.text.trim()
+                });
+
+                continue;
+              }
+
+              // Image part
+              if (
+                part.type === "image" &&
+                typeof part.data === "string" &&
+                part.data.trim()
+              ) {
+                let imageData = part.data.trim();
+
+                let mimeType =
+                  typeof part.mime_type === "string" &&
+                  part.mime_type.trim()
+                    ? part.mime_type.trim()
+                    : "image/jpeg";
+
+                // Support data URLs
+                if (imageData.startsWith("data:")) {
+                  const match = imageData.match(
+                    /^data:([^;]+);base64,(.*)$/s
+                  );
+
+                  if (match) {
+                    mimeType = match[1] || mimeType;
+                    imageData = match[2];
+                  }
+                }
+
+                input.push({
+                  type: "image",
+                  data: imageData,
+                  mime_type: mimeType
+                });
+              }
             }
           }
         }
@@ -230,7 +393,7 @@ M. Rayyan Khan is my owner.
         }
 
         const response = await geminiInteraction({
-          model: "gemini-3.8-flash",
+          model: CHAT_MODEL,
           system_instruction: SYSTEM_INSTRUCTION,
           input,
           store: false
@@ -244,8 +407,9 @@ M. Rayyan Khan is my owner.
           );
         }
 
-        return Response.json({
-          response: text
+        return jsonResponse({
+          response: text,
+          model: CHAT_MODEL
         });
 
       } catch (error) {
@@ -254,21 +418,21 @@ M. Rayyan Khan is my owner.
           error
         );
 
-        return Response.json(
+        return jsonResponse(
           {
             error: "Chatabot AI error",
             details:
               error?.message ||
               String(error)
           },
-          { status: 500 }
+          500
         );
       }
     }
 
-    // =========================
+    // =========================================================
     // IMAGE ANALYSIS
-    // =========================
+    // =========================================================
     if (
       url.pathname === "/api/vision" &&
       request.method === "POST"
@@ -277,47 +441,49 @@ M. Rayyan Khan is my owner.
         const body = await request.json();
 
         const prompt =
-          typeof body.prompt === "string" &&
+          typeof body?.prompt === "string" &&
           body.prompt.trim()
             ? body.prompt.trim()
             : "Please analyze this image carefully and explain what you see.";
 
         let imageData =
-          typeof body.image === "string" &&
+          typeof body?.image === "string" &&
           body.image.trim()
             ? body.image.trim()
-            : typeof body.imageData === "string" &&
+            : typeof body?.imageData === "string" &&
               body.imageData.trim()
               ? body.imageData.trim()
               : "";
 
         if (!imageData) {
-          return Response.json(
+          return jsonResponse(
             {
               error: "Image is required."
             },
-            { status: 400 }
+            400
           );
         }
 
         let mimeType =
-          typeof body.mimeType === "string" &&
+          typeof body?.mimeType === "string" &&
           body.mimeType.trim()
             ? body.mimeType.trim()
             : "image/jpeg";
 
-        // Convert data URL into pure base64.
+        // -----------------------------------------
+        // Convert data URL to pure base64
+        // -----------------------------------------
         if (imageData.startsWith("data:")) {
           const match = imageData.match(
             /^data:([^;]+);base64,(.*)$/s
           );
 
           if (!match) {
-            return Response.json(
+            return jsonResponse(
               {
                 error: "Invalid image data."
               },
-              { status: 400 }
+              400
             );
           }
 
@@ -338,9 +504,20 @@ M. Rayyan Khan is my owner.
         ];
 
         const response = await geminiInteraction({
-          model: "gemini-3.8-flash",
-          system_instruction:
-            "You are Chatabot's image analysis assistant. Carefully analyze the provided image and answer the user's question directly. Only describe information that can reasonably be determined from the image. Never invent visual details. If something is unclear, say that it is unclear.",
+          model: CHAT_MODEL,
+          system_instruction: `
+You are Chatabot's image analysis assistant.
+
+Analyze the supplied image carefully.
+
+Rules:
+- Describe only what can reasonably be determined from the image.
+- Do not invent visual details.
+- If something is blurry or uncertain, clearly say so.
+- Read visible text when possible.
+- Answer the user's specific question directly.
+- If the user asks for identification, distinguish between what is visible and what is uncertain.
+          `.trim(),
           input,
           store: false
         });
@@ -353,9 +530,10 @@ M. Rayyan Khan is my owner.
           );
         }
 
-        return Response.json({
+        return jsonResponse({
           response: text,
-          analysis: text
+          analysis: text,
+          model: CHAT_MODEL
         });
 
       } catch (error) {
@@ -364,101 +542,84 @@ M. Rayyan Khan is my owner.
           error
         );
 
-        return Response.json(
+        return jsonResponse(
           {
             error: "Image analysis error",
             details:
               error?.message ||
               String(error)
           },
-          { status: 500 }
+          500
         );
       }
     }
 
-    // =========================
+    // =========================================================
     // IMAGE GENERATION
-    // =========================
+    // =========================================================
+    // Intentionally disabled in the free-only worker.
+    //
+    // Google's current Gemini API pricing does not list
+    // Nano Banana image generation as having a free tier.
+    // This prevents accidental paid API usage.
+    // =========================================================
     if (
       url.pathname === "/api/image" &&
       request.method === "POST"
     ) {
-      try {
-        const body = await request.json();
-
-        const prompt =
-          typeof body.prompt === "string"
-            ? body.prompt.trim()
-            : "";
-
-        if (!prompt) {
-          return Response.json(
-            {
-              error: "Image prompt is required."
-            },
-            { status: 400 }
-          );
-        }
-
-        const response = await geminiInteraction({
-          model: "gemini-3.1-flash-image",
-          input: prompt,
-          response_format: {
-            type: "image",
-            mime_type: "image/png",
-            aspect_ratio: "1:1",
-            image_size: "1K"
-          },
-          store: false
-        });
-
-        const imageData =
-          response?.output_image?.data ||
-          response?.outputs
-            ?.flatMap((item) =>
-              Array.isArray(item?.content)
-                ? item.content
-                : []
-            )
-            ?.find(
-              (content) =>
-                content?.type === "image" &&
-                typeof content?.data === "string"
-            )
-            ?.data ||
-          "";
-
-        if (!imageData) {
-          throw new Error(
-            "Gemini did not return an image."
-          );
-        }
-
-        return Response.json({
-          image: imageData
-        });
-
-      } catch (error) {
-        console.error(
-          "Chatabot Gemini image generation error:",
-          error
-        );
-
-        return Response.json(
-          {
-            error: "Image generation error",
-            details:
-              error?.message ||
-              String(error)
-          },
-          { status: 500 }
-        );
-      }
+      return jsonResponse(
+        {
+          error: "Image generation is not enabled in the free-only mode.",
+          message:
+            "Chatabot's free mode currently supports AI chat and image analysis. Image generation requires a Gemini image-generation model with paid API access."
+        },
+        403
+      );
     }
 
-    // =========================
-    // WEBSITE
-    // =========================
+    // =========================================================
+    // VIDEO GENERATION
+    // =========================================================
+    // Intentionally disabled in the free-only worker.
+    //
+    // Veo / Gemini Omni video generation can incur API charges,
+    // so this worker never calls those models automatically.
+    // =========================================================
+    if (
+      url.pathname === "/api/video" &&
+      request.method === "POST"
+    ) {
+      return jsonResponse(
+        {
+          error: "Video generation is not enabled in the free-only mode.",
+          message:
+            "Chatabot's current free mode does not make paid video-generation API calls."
+        },
+        403
+      );
+    }
+
+    // =========================================================
+    // HEALTH CHECK
+    // =========================================================
+    if (
+      url.pathname === "/api/health" &&
+      request.method === "GET"
+    ) {
+      return jsonResponse({
+        ok: true,
+        service: "Chatabot",
+        chatModel: CHAT_MODEL,
+        chat: true,
+        imageAnalysis: true,
+        imageGeneration: false,
+        videoGeneration: false
+      });
+    }
+
+    // =========================================================
+    // WEBSITE / CLOUDFLARE ASSETS
+    // =========================================================
     return env.ASSETS.fetch(request);
   }
 };
