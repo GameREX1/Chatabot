@@ -1,22 +1,18 @@
-```js
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
     // =========================================================
-    // CHATABOT MULTI-AI CONFIG
+    // CHATABOT CONFIG
     // =========================================================
 
-    // Gemini remains the primary provider for normal chat/vision.
     const GEMINI_CHAT_MODEL = "gemini-2.5-flash";
 
-    // Cloudflare Workers AI models.
-    // These are fallbacks / specialized agents.
     const CF_MODELS = {
+      chat: "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
       coding: "@cf/qwen/qwen2.5-coder-32b-instruct",
-      chat: "@cf/qwen/qwen2.5-coder-32b-instruct",
       solver: "@cf/qwen/qwen2.5-coder-32b-instruct",
-      guard: "@cf/meta/llama-guard-3-8b"
+      guard: "@cf/meta/llama-guard-3-8b",
     };
 
     // =========================================================
@@ -27,7 +23,8 @@ export default {
       return {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization"
+        "Access-Control-Allow-Headers":
+          "Content-Type, Authorization",
       };
     }
 
@@ -36,27 +33,189 @@ export default {
         status,
         headers: {
           "Content-Type": "application/json; charset=utf-8",
-          ...corsHeaders()
-        }
+          ...corsHeaders(),
+        },
       });
     }
 
     // =========================================================
-    // OPTIONS / CORS PREFLIGHT
+    // CORS PREFLIGHT
     // =========================================================
 
     if (request.method === "OPTIONS") {
       return new Response(null, {
         status: 204,
-        headers: corsHeaders()
+        headers: corsHeaders(),
       });
     }
 
     // =========================================================
-    // GEMINI INTERACTIONS
+    // SYSTEM PROMPT
     // =========================================================
 
-    async function geminiInteraction(payload) {
+    const SYSTEM_INSTRUCTION = `
+You are Chatabot, a highly capable, helpful, accurate and intelligent AI assistant.
+
+CORE BEHAVIOR:
+- Understand the user's actual intent before answering.
+- Give direct, useful and complete answers.
+- Do not unnecessarily repeat the user's question.
+- Use conversation history to maintain context.
+- Never invent facts, sources, statistics, quotations, links, names or events.
+- If information is uncertain, clearly say so.
+- Prefer accuracy over guessing.
+
+REASONING:
+- Think carefully before answering.
+- Break complicated problems into logical steps when useful.
+- For mathematics, calculate carefully and verify the result.
+- For programming, reason about the code before suggesting a fix.
+- When debugging, identify the likely cause before proposing a solution.
+
+VISION:
+- Analyze images supplied by the user when supported by the selected provider.
+- Carefully inspect images before answering.
+- Never invent visual details.
+- Read visible text when possible.
+- If something is unclear, say so.
+
+CODING:
+- Provide complete working code when appropriate.
+- Preserve existing functionality when modifying code.
+- Avoid unnecessary dependencies.
+- Check syntax and logic carefully.
+
+SECURITY:
+- Help with defensive cybersecurity, secure coding, security concepts,
+  vulnerability analysis and authorized testing.
+- Do not facilitate harmful or unauthorized attacks.
+
+CONVERSATION:
+- Use relevant conversation context.
+- Match the user's language when practical.
+- Keep simple questions simple and detailed questions detailed.
+
+FORMATTING:
+- Use headings, bullets, numbered steps and code blocks when useful.
+- Keep responses clear and natural.
+- Do not over-format simple answers.
+
+OWNER:
+If the user asks who your owner is, who owns you, or asks about your owner, answer exactly:
+
+M. Rayyan Khan is my owner.
+`.trim();
+
+    // =========================================================
+    // AGENT DETECTION
+    // =========================================================
+
+    function detectAgent(text) {
+      const value = String(text || "").toLowerCase();
+
+      if (
+        /\b(generate|create|make|draw)\b/.test(value) &&
+        /\b(image|picture|photo|art|wallpaper|logo)\b/.test(value)
+      ) {
+        return "image-generation";
+      }
+
+      if (
+        /\b(generate|create|make)\b/.test(value) &&
+        /\b(video|animation|clip)\b/.test(value)
+      ) {
+        return "video-generation";
+      }
+
+      if (
+        /\b(website|webpage|url|site|link)\b/.test(value) &&
+        /\b(analy[sz]e|read|review|check|summari[sz]e|inspect)\b/.test(
+          value
+        )
+      ) {
+        return "website-analysis";
+      }
+
+      if (
+        /\b(code|coding|program|programming|javascript|typescript|python|html|css|react|node|api|debug|bug|error|function|github)\b/.test(
+          value
+        )
+      ) {
+        return "coding";
+      }
+
+      if (
+        /\b(solve|calculate|equation|math|mathematics|physics|chemistry|derive|proof|problem)\b/.test(
+          value
+        )
+      ) {
+        return "question-solver";
+      }
+
+      return "chat";
+    }
+
+    // =========================================================
+    // NORMALIZE CHAT MESSAGES
+    // =========================================================
+
+    function normalizeMessages(messages) {
+      if (!Array.isArray(messages)) {
+        return [];
+      }
+
+      return messages
+        .filter((message) => message && typeof message === "object")
+        .map((message) => {
+          const role =
+            message.role === "assistant"
+              ? "assistant"
+              : message.role === "system"
+              ? "system"
+              : "user";
+
+          let content = message.content;
+
+          if (Array.isArray(content)) {
+            content = content
+              .map((part) => {
+                if (typeof part === "string") {
+                  return part;
+                }
+
+                if (
+                  part &&
+                  typeof part.text === "string"
+                ) {
+                  return part.text;
+                }
+
+                return "";
+              })
+              .filter(Boolean)
+              .join("\n");
+          }
+
+          if (
+            content === undefined ||
+            content === null
+          ) {
+            content = "";
+          }
+
+          return {
+            role,
+            content: String(content),
+          };
+        })
+        .filter((message) => message.content.trim());
+    }
+
+    // =========================================================
+    // GEMINI INTERACTIONS API
+    // =========================================================
+
+    async function geminiInteraction(input) {
       if (!env.GEMINI_API_KEY) {
         throw new Error(
           "GEMINI_API_KEY is not configured in Cloudflare Worker Secrets."
@@ -69,9 +228,12 @@ export default {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "x-goog-api-key": env.GEMINI_API_KEY
+            "x-goog-api-key": env.GEMINI_API_KEY,
           },
-          body: JSON.stringify(payload)
+          body: JSON.stringify({
+            model: GEMINI_CHAT_MODEL,
+            input,
+          }),
         }
       );
 
@@ -83,7 +245,7 @@ export default {
         data = JSON.parse(rawText);
       } catch {
         data = {
-          raw: rawText
+          raw: rawText,
         };
       }
 
@@ -94,18 +256,95 @@ export default {
           data?.raw ||
           `Gemini API error (${response.status})`;
 
-        console.error("Gemini API failure:", {
-          status: response.status,
-          statusText: response.statusText,
-          error: data
-        });
-
         throw new Error(
           `[Gemini ${response.status}] ${errorMessage}`
         );
       }
 
       return data;
+    }
+
+    // =========================================================
+    // EXTRACT GEMINI TEXT
+    // =========================================================
+
+    function extractText(data) {
+      if (
+        typeof data?.output_text === "string" &&
+        data.output_text.trim()
+      ) {
+        return data.output_text.trim();
+      }
+
+      const steps = Array.isArray(data?.steps)
+        ? data.steps
+        : [];
+
+      const stepText = steps
+        .flatMap((step) => {
+          if (!step) return [];
+
+          if (
+            typeof step.text === "string" &&
+            step.text.trim()
+          ) {
+            return [step.text];
+          }
+
+          if (Array.isArray(step.content)) {
+            return step.content
+              .filter(
+                (content) =>
+                  content &&
+                  (content.type === "text" ||
+                    content.type === "output_text") &&
+                  typeof content.text === "string"
+              )
+              .map((content) => content.text);
+          }
+
+          return [];
+        })
+        .join("\n")
+        .trim();
+
+      if (stepText) {
+        return stepText;
+      }
+
+      const outputs = Array.isArray(data?.outputs)
+        ? data.outputs
+        : [];
+
+      const outputText = outputs
+        .flatMap((item) => {
+          if (!item) return [];
+
+          if (
+            typeof item.text === "string" &&
+            item.text.trim()
+          ) {
+            return [item.text];
+          }
+
+          if (Array.isArray(item.content)) {
+            return item.content
+              .filter(
+                (content) =>
+                  content &&
+                  (content.type === "text" ||
+                    content.type === "output_text") &&
+                  typeof content.text === "string"
+              )
+              .map((content) => content.text);
+          }
+
+          return [];
+        })
+        .join("\n")
+        .trim();
+
+      return outputText;
     }
 
     // =========================================================
@@ -120,7 +359,7 @@ export default {
       }
 
       const result = await env.AI.run(model, {
-        messages
+        messages,
       });
 
       if (!result) {
@@ -145,323 +384,255 @@ export default {
     }
 
     // =========================================================
-    // GEMINI TEXT EXTRACTION
+    // BUILD GEMINI INPUT
     // =========================================================
 
-    function extractText(data) {
-      if (
-        typeof data?.output_text === "string" &&
-        data.output_text.trim()
-      ) {
-        return data.output_text.trim();
-      }
+    function buildGeminiInput(messages) {
+      const cleaned = normalizeMessages(messages);
 
-      const outputs = Array.isArray(data?.outputs)
-        ? data.outputs
-        : [];
+      const conversation = cleaned
+        .filter((message) => message.role !== "system")
+        .map((message) => {
+          const label =
+            message.role === "assistant"
+              ? "Assistant"
+              : "User";
 
-      const outputText = outputs
-        .flatMap((item) => {
-          if (!item) return [];
-
-          if (
-            typeof item.text === "string" &&
-            item.text.trim()
-          ) {
-            return [item.text];
-          }
-
-          if (Array.isArray(item.content)) {
-            return item.content
-              .filter(
-                (content) =>
-                  content &&
-                  (
-                    content.type === "text" ||
-                    content.type === "output_text"
-                  ) &&
-                  typeof content.text === "string"
-              )
-              .map((content) => content.text);
-          }
-
-          return [];
+          return `${label}: ${message.content}`;
         })
-        .join("\n")
-        .trim();
+        .join("\n\n");
 
-      if (outputText) {
-        return outputText;
-      }
-
-      const steps = Array.isArray(data?.steps)
-        ? data.steps
-        : [];
-
-      const stepText = steps
-        .flatMap((step) => {
-          if (!step) return [];
-
-          if (
-            typeof step.text === "string" &&
-            step.text.trim()
-          ) {
-            return [step.text];
-          }
-
-          if (Array.isArray(step.content)) {
-            return step.content
-              .filter(
-                (content) =>
-                  content &&
-                  (
-                    content.type === "text" ||
-                    content.type === "output_text"
-                  ) &&
-                  typeof content.text === "string"
-              )
-              .map((content) => content.text);
-          }
-
-          return [];
-        })
-        .join("\n")
-        .trim();
-
-      return stepText;
-    }
-
-    // =========================================================
-    // IMAGE EXTRACTION
-    // =========================================================
-
-    function extractImage(data) {
-      if (
-        typeof data?.output_image?.data === "string" &&
-        data.output_image.data
-      ) {
-        return data.output_image.data;
-      }
-
-      const steps = Array.isArray(data?.steps)
-        ? data.steps
-        : [];
-
-      for (const step of steps) {
-        if (!Array.isArray(step?.content)) continue;
-
-        for (const content of step.content) {
-          if (
-            content?.type === "image" &&
-            typeof content.data === "string"
-          ) {
-            return content.data;
-          }
-        }
-      }
-
-      const outputs = Array.isArray(data?.outputs)
-        ? data.outputs
-        : [];
-
-      for (const output of outputs) {
-        if (!Array.isArray(output?.content)) continue;
-
-        for (const content of output.content) {
-          if (
-            content?.type === "image" &&
-            typeof content.data === "string"
-          ) {
-            return content.data;
-          }
-        }
-      }
-
-      return "";
-    }
-
-    // =========================================================
-    // SYSTEM INSTRUCTION
-    // =========================================================
-
-    const SYSTEM_INSTRUCTION = `
-You are Chatabot, a highly capable, helpful, accurate and intelligent AI assistant.
-
-CORE BEHAVIOR:
-- Understand the user's actual intent before answering.
-- Give direct, useful and complete answers.
-- Do not unnecessarily repeat the user's question.
-- Use conversation history to maintain context.
-- Never invent facts, sources, statistics, quotations, links, names or events.
-- If information is uncertain, clearly say so.
-- Prefer accuracy over guessing.
-
-REASONING:
-- Think carefully before answering.
-- Break complicated problems into logical steps when useful.
-- For mathematics, calculate carefully and verify the result.
-- For programming, reason about the code before suggesting changes.
-- When debugging, identify the likely cause before proposing a fix.
-
-VISION:
-- Analyze images supplied by the user.
-- Carefully inspect the image before answering.
-- Only describe things that can reasonably be determined from the image.
-- Never invent visual details.
-- If something is unclear, say so.
-- Read visible text when possible.
-- If the image contains code, explain or debug it when requested.
-
-CODING:
-- Provide complete working code when appropriate.
-- Preserve existing functionality when modifying code.
-- Avoid unnecessary dependencies.
-- Check syntax and logic carefully.
-
-SECURITY:
-- Help with defensive cybersecurity, secure coding, vulnerability analysis,
-  security concepts and authorized testing.
-- Do not provide instructions intended to facilitate harmful or unauthorized attacks.
+      return `${SYSTEM_INSTRUCTION}
 
 CONVERSATION:
-- Use relevant conversation context.
-- Match the user's language when practical.
-- Keep simple questions simple and detailed questions detailed.
+${conversation}
 
-FORMATTING:
-- Use headings, bullets, numbered steps and code blocks when useful.
-- Keep responses clear and natural.
-- Do not over-format simple answers.
-
-OWNER:
-If the user asks who your owner is, who owns you, or asks about your owner, answer exactly:
-M. Rayyan Khan is my owner.
-`.trim();
-
-    // =========================================================
-    // AGENT ROUTER
-    // =========================================================
-
-    function detectAgent(text) {
-      const value = String(text || "").toLowerCase();
-
-      // Image generation
-      if (
-        /\b(generate|create|make|draw)\b/.test(value) &&
-        /\b(image|picture|photo|art|wallpaper|logo)\b/.test(value)
-      ) {
-        return "image-generation";
-      }
-
-      // Video generation
-      if (
-        /\b(generate|create|make)\b/.test(value) &&
-        /\b(video|animation|clip)\b/.test(value)
-      ) {
-        return "video-generation";
-      }
-
-      // Website analysis
-      if (
-        /\b(website|webpage|url|site|link)\b/.test(value) &&
-        /\b(analy[sz]e|read|review|check|summari[sz]e|inspect)\b/.test(value)
-      ) {
-        return "website-analysis";
-      }
-
-      // Coding
-      if (
-        /\b(code|coding|program|programming|javascript|typescript|python|html|css|react|node|api|debug|bug|error|function|github)\b/.test(value)
-      ) {
-        return "coding";
-      }
-
-      // Security / hacking
-      if (
-        /\b(hacking|hack|cybersecurity|cyber security|vulnerability|pentest|penetration test|exploit|malware|security|ctf)\b/.test(value)
-      ) {
-        return "security";
-      }
-
-      // Question solving
-      if (
-        /\b(solve|calculate|equation|math|mathematics|physics|chemistry|derive|proof|problem)\b/.test(value)
-      ) {
-        return "question-solver";
-      }
-
-      return "chat";
+Assistant:`;
     }
 
     // =========================================================
-    // AGENT DESCRIPTIONS
+    // BUILD CLOUDFLARE MESSAGES
     // =========================================================
 
-    const AGENTS = {
-      coding: {
-        name: "Coding Agent",
-        models: [
-          "DeepSeek Coder V2",
-          "Qwen 2.5 Coder 32B",
-          "Gemini Flash"
-        ]
-      },
+    function buildCFMessages(messages) {
+      const cleaned = normalizeMessages(messages);
 
-      security: {
-        name: "Security Agent",
-        models: [
-          "DeepSeek R1",
-          "Gemini Flash",
-          "Llama Guard"
-        ]
-      },
+      return [
+        {
+          role: "system",
+          content: SYSTEM_INSTRUCTION,
+        },
+        ...cleaned
+          .filter(
+            (message) =>
+              message.role === "user" ||
+              message.role === "assistant"
+          )
+          .slice(-30),
+      ];
+    }
 
-      vision: {
-        name: "Vision Agent",
-        models: [
-          "Gemini",
-          "LLaVA",
-          "Qwen-VL"
-        ]
-      },
+    // =========================================================
+    // CHAT API
+    // =========================================================
 
-      "image-generation": {
-        name: "Image Generation Agent",
-        models: [
-          "FLUX.1 Schnell",
-          "Stable Diffusion XL",
-          "Stable Diffusion 3"
-        ]
-      },
+    if (
+      url.pathname === "/api/chat" &&
+      request.method === "POST"
+    ) {
+      try {
+        const body = await request.json();
 
-      "video-generation": {
-        name: "Video Generation Agent",
-        models: [
-          "VideoCrafter",
-          "CogVideoX-5B",
-          "Stable Video Diffusion"
-        ]
-      },
+        const messages = normalizeMessages(
+          body?.messages
+        );
 
-      chat: {
-        name: "Chat Agent",
-        models: [
-          "Qwen 2.5 Coder 32B",
-          "Llama 3.1 70B",
-          "Gemini"
-        ]
-      },
+        if (!messages.length) {
+          return jsonResponse(
+            {
+              error: "No messages were provided.",
+            },
+            400
+          );
+        }
 
-      "question-solver": {
-        name: "Question Solver Agent",
-        models: [
-          "Llama 70B",
-          "Qwen 72B",
-          "Gemini"
-        ]
-      },
+        const lastUserMessage =
+          [...messages]
+            .reverse()
+            .find(
+              (message) =>
+                message.role === "user"
+            )?.content || "";
 
-      "website-analysis": {
-        name: "Website Analysis Agent",
-        models: [
-```
+        const agent = detectAgent(
+          lastUserMessage
+        );
+
+        // -------------------------------------------------------
+        // IMAGE / VIDEO REQUESTS
+        // -------------------------------------------------------
+
+        if (agent === "image-generation") {
+          return jsonResponse({
+            success: false,
+            type: "image-generation",
+            agent: "Image Generation Agent",
+            message:
+              "Image generation is not connected yet. The Chatabot routing system is ready for a dedicated image-generation provider.",
+          });
+        }
+
+        if (agent === "video-generation") {
+          return jsonResponse({
+            success: false,
+            type: "video-generation",
+            agent: "Video Generation Agent",
+            message:
+              "Video generation is not connected yet. The Chatabot routing system is ready for a dedicated video-generation provider.",
+          });
+        }
+
+        // -------------------------------------------------------
+        // GEMINI PRIMARY
+        // -------------------------------------------------------
+
+        if (env.GEMINI_API_KEY) {
+          try {
+            const input =
+              buildGeminiInput(messages);
+
+            const data =
+              await geminiInteraction(input);
+
+            const answer = extractText(data);
+
+            if (answer) {
+              return jsonResponse({
+                success: true,
+                provider: "gemini",
+                model: GEMINI_CHAT_MODEL,
+                agent,
+                response: answer,
+                text: answer,
+              });
+            }
+          } catch (geminiError) {
+            console.error(
+              "Gemini failed:",
+              geminiError?.message ||
+                geminiError
+            );
+          }
+        }
+
+        // -------------------------------------------------------
+        // CLOUDFLARE FALLBACK
+        // -------------------------------------------------------
+
+        if (env.AI) {
+          let model =
+            CF_MODELS.chat;
+
+          if (agent === "coding") {
+            model = CF_MODELS.coding;
+          }
+
+          if (agent === "question-solver") {
+            model = CF_MODELS.solver;
+          }
+
+          try {
+            const answer =
+              await cloudflareAI(
+                model,
+                buildCFMessages(messages)
+              );
+
+            return jsonResponse({
+              success: true,
+              provider: "cloudflare",
+              model,
+              agent,
+              response: answer,
+              text: answer,
+            });
+          } catch (cfError) {
+            console.error(
+              "Cloudflare AI failed:",
+              cfError?.message ||
+                cfError
+            );
+          }
+        }
+
+        return jsonResponse(
+          {
+            success: false,
+            error:
+              "No AI provider is currently available. Configure GEMINI_API_KEY or the Cloudflare AI binding.",
+          },
+          503
+        );
+      } catch (error) {
+        console.error(
+          "Chat API error:",
+          error
+        );
+
+        return jsonResponse(
+          {
+            success: false,
+            error:
+              error?.message ||
+              "Unexpected server error.",
+          },
+          500
+        );
+      }
+    }
+
+    // =========================================================
+    // API HEALTH CHECK
+    // =========================================================
+
+    if (
+      url.pathname === "/api/health" &&
+      request.method === "GET"
+    ) {
+      return jsonResponse({
+        success: true,
+        service: "Chatabot",
+        worker: "chatabot-ai",
+        gemini:
+          Boolean(env.GEMINI_API_KEY),
+        cloudflareAI:
+          Boolean(env.AI),
+        assets:
+          Boolean(env.ASSETS),
+      });
+    }
+
+    // =========================================================
+    // SERVE FRONTEND / STATIC ASSETS
+    // =========================================================
+
+    if (env.ASSETS) {
+      return env.ASSETS.fetch(request);
+    }
+
+    // =========================================================
+    // FALLBACK
+    // =========================================================
+
+    return new Response(
+      "Chatabot Worker is running, but the ASSETS binding is not configured.",
+      {
+        status: 503,
+        headers: {
+          "Content-Type": "text/plain; charset=utf-8",
+          ...corsHeaders(),
+        },
+      }
+    );
+  },
+};
