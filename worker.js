@@ -3,7 +3,7 @@ export default {
     const url = new URL(request.url);
 
     // =========================================================
-    // CHATABOT CONFIG
+    // CHATABOT CONFIGURATION
     // =========================================================
 
     const GEMINI_CHAT_MODEL = "gemini-2.5-flash";
