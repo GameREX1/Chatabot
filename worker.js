@@ -165,7 +165,11 @@ M. Rayyan Khan is my owner.
       }
 
       return messages
-        .filter((message) => message && typeof message === "object")
+        .filter(
+          (message) =>
+            message &&
+            typeof message === "object"
+        )
         .map((message) => {
           const role =
             message.role === "assistant"
@@ -208,7 +212,10 @@ M. Rayyan Khan is my owner.
             content: String(content),
           };
         })
-        .filter((message) => message.content.trim());
+        .filter(
+          (message) =>
+            message.content.trim()
+        );
     }
 
     // =========================================================
@@ -228,7 +235,8 @@ M. Rayyan Khan is my owner.
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "x-goog-api-key": env.GEMINI_API_KEY,
+            "x-goog-api-key":
+              env.GEMINI_API_KEY,
           },
           body: JSON.stringify({
             model: GEMINI_CHAT_MODEL,
@@ -237,7 +245,8 @@ M. Rayyan Khan is my owner.
         }
       );
 
-      const rawText = await response.text();
+      const rawText =
+        await response.text();
 
       let data;
 
@@ -270,13 +279,16 @@ M. Rayyan Khan is my owner.
 
     function extractText(data) {
       if (
-        typeof data?.output_text === "string" &&
+        typeof data?.output_text ===
+          "string" &&
         data.output_text.trim()
       ) {
         return data.output_text.trim();
       }
 
-      const steps = Array.isArray(data?.steps)
+      const steps = Array.isArray(
+        data?.steps
+      )
         ? data.steps
         : [];
 
@@ -285,22 +297,33 @@ M. Rayyan Khan is my owner.
           if (!step) return [];
 
           if (
-            typeof step.text === "string" &&
+            typeof step.text ===
+              "string" &&
             step.text.trim()
           ) {
             return [step.text];
           }
 
-          if (Array.isArray(step.content)) {
+          if (
+            Array.isArray(
+              step.content
+            )
+          ) {
             return step.content
               .filter(
                 (content) =>
                   content &&
-                  (content.type === "text" ||
-                    content.type === "output_text") &&
-                  typeof content.text === "string"
+                  (content.type ===
+                    "text" ||
+                    content.type ===
+                      "output_text") &&
+                  typeof content.text ===
+                    "string"
               )
-              .map((content) => content.text);
+              .map(
+                (content) =>
+                  content.text
+              );
           }
 
           return [];
@@ -312,7 +335,9 @@ M. Rayyan Khan is my owner.
         return stepText;
       }
 
-      const outputs = Array.isArray(data?.outputs)
+      const outputs = Array.isArray(
+        data?.outputs
+      )
         ? data.outputs
         : [];
 
@@ -321,22 +346,33 @@ M. Rayyan Khan is my owner.
           if (!item) return [];
 
           if (
-            typeof item.text === "string" &&
+            typeof item.text ===
+              "string" &&
             item.text.trim()
           ) {
             return [item.text];
           }
 
-          if (Array.isArray(item.content)) {
+          if (
+            Array.isArray(
+              item.content
+            )
+          ) {
             return item.content
               .filter(
                 (content) =>
                   content &&
-                  (content.type === "text" ||
-                    content.type === "output_text") &&
-                  typeof content.text === "string"
+                  (content.type ===
+                    "text" ||
+                    content.type ===
+                      "output_text") &&
+                  typeof content.text ===
+                    "string"
               )
-              .map((content) => content.text);
+              .map(
+                (content) =>
+                  content.text
+              );
           }
 
           return [];
@@ -351,16 +387,20 @@ M. Rayyan Khan is my owner.
     // CLOUDFLARE WORKERS AI
     // =========================================================
 
-    async function cloudflareAI(model, messages) {
+    async function cloudflareAI(
+      model,
+      messages
+    ) {
       if (!env.AI) {
         throw new Error(
           "Cloudflare AI binding (AI) is not configured."
         );
       }
 
-      const result = await env.AI.run(model, {
-        messages,
-      });
+      const result =
+        await env.AI.run(model, {
+          messages,
+        });
 
       if (!result) {
         throw new Error(
@@ -387,20 +427,29 @@ M. Rayyan Khan is my owner.
     // BUILD GEMINI INPUT
     // =========================================================
 
-    function buildGeminiInput(messages) {
-      const cleaned = normalizeMessages(messages);
+    function buildGeminiInput(
+      messages
+    ) {
+      const cleaned =
+        normalizeMessages(messages);
 
-      const conversation = cleaned
-        .filter((message) => message.role !== "system")
-        .map((message) => {
-          const label =
-            message.role === "assistant"
-              ? "Assistant"
-              : "User";
+      const conversation =
+        cleaned
+          .filter(
+            (message) =>
+              message.role !==
+              "system"
+          )
+          .map((message) => {
+            const label =
+              message.role ===
+              "assistant"
+                ? "Assistant"
+                : "User";
 
-          return `${label}: ${message.content}`;
-        })
-        .join("\n\n");
+            return `${label}: ${message.content}`;
+          })
+          .join("\n\n");
 
       return `${SYSTEM_INSTRUCTION}
 
@@ -414,19 +463,25 @@ Assistant:`;
     // BUILD CLOUDFLARE MESSAGES
     // =========================================================
 
-    function buildCFMessages(messages) {
-      const cleaned = normalizeMessages(messages);
+    function buildCFMessages(
+      messages
+    ) {
+      const cleaned =
+        normalizeMessages(messages);
 
       return [
         {
           role: "system",
-          content: SYSTEM_INSTRUCTION,
+          content:
+            SYSTEM_INSTRUCTION,
         },
         ...cleaned
           .filter(
             (message) =>
-              message.role === "user" ||
-              message.role === "assistant"
+              message.role ===
+                "user" ||
+              message.role ===
+                "assistant"
           )
           .slice(-30),
       ];
@@ -437,20 +492,24 @@ Assistant:`;
     // =========================================================
 
     if (
-      url.pathname === "/api/chat" &&
+      url.pathname ===
+        "/api/chat" &&
       request.method === "POST"
     ) {
       try {
-        const body = await request.json();
+        const body =
+          await request.json();
 
-        const messages = normalizeMessages(
-          body?.messages
-        );
+        const messages =
+          normalizeMessages(
+            body?.messages
+          );
 
         if (!messages.length) {
           return jsonResponse(
             {
-              error: "No messages were provided.",
+              error:
+                "No messages were provided.",
             },
             400
           );
@@ -461,32 +520,48 @@ Assistant:`;
             .reverse()
             .find(
               (message) =>
-                message.role === "user"
+                message.role ===
+                "user"
             )?.content || "";
 
-        const agent = detectAgent(
-          lastUserMessage
-        );
+        const agent =
+          detectAgent(
+            lastUserMessage
+          );
 
         // -------------------------------------------------------
-        // IMAGE / VIDEO REQUESTS
+        // IMAGE REQUESTS
         // -------------------------------------------------------
 
-        if (agent === "image-generation") {
+        if (
+          agent ===
+          "image-generation"
+        ) {
           return jsonResponse({
             success: false,
-            type: "image-generation",
-            agent: "Image Generation Agent",
+            type:
+              "image-generation",
+            agent:
+              "Image Generation Agent",
             message:
               "Image generation is not connected yet. The Chatabot routing system is ready for a dedicated image-generation provider.",
           });
         }
 
-        if (agent === "video-generation") {
+        // -------------------------------------------------------
+        // VIDEO REQUESTS
+        // -------------------------------------------------------
+
+        if (
+          agent ===
+          "video-generation"
+        ) {
           return jsonResponse({
             success: false,
-            type: "video-generation",
-            agent: "Video Generation Agent",
+            type:
+              "video-generation",
+            agent:
+              "Video Generation Agent",
             message:
               "Video generation is not connected yet. The Chatabot routing system is ready for a dedicated video-generation provider.",
           });
@@ -499,27 +574,38 @@ Assistant:`;
         if (env.GEMINI_API_KEY) {
           try {
             const input =
-              buildGeminiInput(messages);
+              buildGeminiInput(
+                messages
+              );
 
             const data =
-              await geminiInteraction(input);
+              await geminiInteraction(
+                input
+              );
 
-            const answer = extractText(data);
+            const answer =
+              extractText(data);
 
             if (answer) {
               return jsonResponse({
                 success: true,
-                provider: "gemini",
-                model: GEMINI_CHAT_MODEL,
+                provider:
+                  "gemini",
+                model:
+                  GEMINI_CHAT_MODEL,
                 agent,
-                response: answer,
+                response:
+                  answer,
                 text: answer,
               });
             }
-          } catch (geminiError) {
+          } catch (
+            geminiError
+          ) {
             console.error(
               "Gemini failed:",
-              geminiError?.message ||
+              geminiError
+                ?.message ||
                 geminiError
             );
           }
@@ -533,27 +619,38 @@ Assistant:`;
           let model =
             CF_MODELS.chat;
 
-          if (agent === "coding") {
-            model = CF_MODELS.coding;
+          if (
+            agent === "coding"
+          ) {
+            model =
+              CF_MODELS.coding;
           }
 
-          if (agent === "question-solver") {
-            model = CF_MODELS.solver;
+          if (
+            agent ===
+            "question-solver"
+          ) {
+            model =
+              CF_MODELS.solver;
           }
 
           try {
             const answer =
               await cloudflareAI(
                 model,
-                buildCFMessages(messages)
+                buildCFMessages(
+                  messages
+                )
               );
 
             return jsonResponse({
               success: true,
-              provider: "cloudflare",
+              provider:
+                "cloudflare",
               model,
               agent,
-              response: answer,
+              response:
+                answer,
               text: answer,
             });
           } catch (cfError) {
@@ -564,6 +661,10 @@ Assistant:`;
             );
           }
         }
+
+        // -------------------------------------------------------
+        // NO PROVIDER
+        // -------------------------------------------------------
 
         return jsonResponse(
           {
@@ -596,15 +697,19 @@ Assistant:`;
     // =========================================================
 
     if (
-      url.pathname === "/api/health" &&
+      url.pathname ===
+        "/api/health" &&
       request.method === "GET"
     ) {
       return jsonResponse({
         success: true,
         service: "Chatabot",
-        worker: "chatabot-ai",
+        worker:
+          "chatabot-ai",
         gemini:
-          Boolean(env.GEMINI_API_KEY),
+          Boolean(
+            env.GEMINI_API_KEY
+          ),
         cloudflareAI:
           Boolean(env.AI),
         assets:
@@ -617,7 +722,9 @@ Assistant:`;
     // =========================================================
 
     if (env.ASSETS) {
-      return env.ASSETS.fetch(request);
+      return env.ASSETS.fetch(
+        request
+      );
     }
 
     // =========================================================
@@ -629,7 +736,8 @@ Assistant:`;
       {
         status: 503,
         headers: {
-          "Content-Type": "text/plain; charset=utf-8",
+          "Content-Type":
+            "text/plain; charset=utf-8",
           ...corsHeaders(),
         },
       }
