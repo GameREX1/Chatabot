@@ -444,6 +444,41 @@ M. Rayyan Khan is my owner.
     // FLUX.1 SCHNELL IMAGE GENERATION
     // =========================================================
 
+    function normalizeGeneratedImage(image) {
+      if (
+        typeof image !== "string" ||
+        !image.trim()
+      ) {
+        throw new Error(
+          "FLUX.1 Schnell returned an invalid image."
+        );
+      }
+
+      const value =
+        image.trim();
+
+      // Already a data URL
+      if (
+        /^data:image\//i.test(
+          value
+        )
+      ) {
+        return value;
+      }
+
+      // Already a public image URL
+      if (
+        /^https?:\/\//i.test(
+          value
+        )
+      ) {
+        return value;
+      }
+
+      // Raw base64 returned by Cloudflare Workers AI
+      return `data:image/png;base64,${value}`;
+    }
+
     async function generateImage(prompt) {
       if (!env.AI) {
         throw new Error(
@@ -472,14 +507,16 @@ M. Rayyan Khan is my owner.
 
       if (
         typeof result.image !== "string" ||
-        !result.image
+        !result.image.trim()
       ) {
         throw new Error(
           "FLUX.1 Schnell did not return an image."
         );
       }
 
-      return result.image;
+      return normalizeGeneratedImage(
+        result.image
+      );
     }
 
     // =========================================================
