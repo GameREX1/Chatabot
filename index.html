@@ -578,6 +578,28 @@
       object-fit: cover;
     }
 
+    .message-selected-context {
+      display: block;
+      margin-bottom: 10px;
+      padding: 9px 11px;
+      border-left: 3px solid #666;
+      background: #151515;
+      border-radius: 8px;
+      color: #bdbdbd;
+      font-size: 13px;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .message-selected-context-label {
+      display: block;
+      margin-bottom: 3px;
+      color: #888;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
     .message-content {
       white-space: pre-wrap;
       word-break: break-word;
@@ -3149,7 +3171,7 @@
           ...(oldMessage || {}),
           role: "user",
           content: messageContent,
-          ...(context ? { selectedContext: context } : {})
+          selectedContext: context || oldMessage?.selectedContext || ""
         };
 
         renderCurrentChat();
@@ -3159,7 +3181,8 @@
         addMessage(
           messageContent,
           "user",
-          currentChat.length
+          currentChat.length,
+          context
         );
 
         currentChat.push({
@@ -3682,7 +3705,8 @@
     function addMessage(
       text,
       type,
-      chatIndex = null
+      chatIndex = null,
+      selectedContextTextValue = ""
     ) {
 
       const message =
@@ -3759,8 +3783,28 @@
 
       } else {
 
-        content.textContent =
-          text;
+        const cleanSelectedContext =
+          String(selectedContextTextValue || "").trim();
+
+        if (cleanSelectedContext) {
+          const contextQuote = document.createElement("div");
+          contextQuote.className = "message-selected-context";
+
+          const contextLabel = document.createElement("span");
+          contextLabel.className = "message-selected-context-label";
+          contextLabel.textContent = "Selected text";
+
+          const contextBody = document.createElement("span");
+          contextBody.textContent = cleanSelectedContext;
+
+          contextQuote.appendChild(contextLabel);
+          contextQuote.appendChild(contextBody);
+          content.appendChild(contextQuote);
+        }
+
+        const userText = document.createElement("div");
+        userText.textContent = text;
+        content.appendChild(userText);
 
       }
 
@@ -3958,6 +4002,16 @@
       }
 
       clearSelectedContext();
+
+      if (message.selectedContext) {
+        selectedContext = message.selectedContext;
+        if (selectedContextText) {
+          selectedContextText.textContent = selectedContext;
+        }
+        if (selectedContextBox) {
+          selectedContextBox.style.display = "flex";
+        }
+      }
       input.focus();
       input.setSelectionRange(
         input.value.length,
@@ -4747,7 +4801,10 @@
               message.role === "user"
                 ? "user"
                 : "bot",
-              index
+              index,
+              message.role === "user"
+                ? (message.selectedContext || "")
+                : ""
             );
 
           }
