@@ -13,7 +13,9 @@ export default {
       coding: "@cf/qwen/qwen2.5-coder-32b-instruct",
       solver: "@cf/qwen/qwen2.5-coder-32b-instruct",
       guard: "@cf/meta/llama-guard-3-8b",
-      image: "@cf/black-forest-labs/flux-2-dev",
+
+      // FLUX.1 Schnell image generation
+      image: "@cf/black-forest-labs/flux-1-schnell",
     };
 
     // =========================================================
@@ -70,7 +72,7 @@ REASONING:
 - Think carefully before answering.
 - Break complicated problems into logical steps when useful.
 - For mathematics, calculate carefully and verify the result.
-- For programming, reason about the code before suggesting a fix.
+- For programming, reason about the code before suggesting a solution.
 - When debugging, identify the likely cause before proposing a solution.
 
 VISION:
@@ -425,7 +427,7 @@ M. Rayyan Khan is my owner.
     }
 
     // =========================================================
-    // FLUX.2 DEV IMAGE GENERATION
+    // FLUX.1 SCHNELL IMAGE GENERATION
     // =========================================================
 
     async function generateImage(prompt) {
@@ -441,55 +443,19 @@ M. Rayyan Khan is my owner.
         );
       }
 
-      const form = new FormData();
-
-      form.append(
-        "prompt",
-        String(prompt).trim()
-      );
-
-      // Balanced default settings.
-      form.append("steps", "25");
-      form.append("width", "1024");
-      form.append("height", "1024");
-
-      // Cloudflare Workers AI expects multipart form data
-      // for FLUX.2 [dev].
-      const dummyRequest = new Request(
-        "https://chatabot-image.local",
-        {
-          method: "POST",
-          body: form,
-        }
-      );
-
-      const body = dummyRequest.body;
-
-      if (!body) {
-        throw new Error(
-          "Could not create image-generation request body."
-        );
-      }
-
-      const contentType =
-        dummyRequest.headers.get(
-          "content-type"
-        ) ||
-        "multipart/form-data";
-
       const result = await env.AI.run(
         CF_MODELS.image,
         {
-          multipart: {
-            body,
-            contentType,
-          },
+          prompt: String(prompt).trim(),
+          seed: Math.floor(
+            Math.random() * 1000000000
+          ),
         }
       );
 
       if (!result) {
         throw new Error(
-          "FLUX.2 [dev] returned an empty response."
+          "FLUX.1 Schnell returned an empty response."
         );
       }
 
@@ -498,7 +464,7 @@ M. Rayyan Khan is my owner.
         !result.image
       ) {
         throw new Error(
-          "FLUX.2 [dev] did not return an image."
+          "FLUX.1 Schnell did not return an image."
         );
       }
 
@@ -639,11 +605,11 @@ Assistant:`;
                 lastUserMessage,
               image,
               mimeType:
-                "image/png",
+                "image/jpeg",
             });
           } catch (imageError) {
             console.error(
-              "FLUX image generation failed:",
+              "FLUX.1 Schnell image generation failed:",
               imageError?.message ||
                 imageError
             );
@@ -853,7 +819,7 @@ Assistant:`;
           prompt,
           image,
           mimeType:
-            "image/png",
+            "image/jpeg",
         });
       } catch (error) {
         console.error(
