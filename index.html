@@ -3359,19 +3359,33 @@
 
       const isEditing = editingMessageIndex !== null;
 
+      /* VIDEO MODE ALWAYS TAKES PRIORITY.
+         Never let image-generation detection or image limits handle a
+         request when the user explicitly selected Video. */
+      if (selectedChatMode === "video") {
+        if (!currentUser && !isAdminUser()) {
+          signupPrompt();
+          showAuthMessage("Please create a free account to generate videos.");
+          return;
+        }
+
+        if (!selectedImageFile) {
+          removeWelcome();
+          const videoNotice =
+            "Video mode needs a reference image. Choose Video from +, upload an image, then press Send.";
+          addMessage(videoNotice, "bot", currentChat.length);
+          currentChat.push({ role: "bot", content: videoNotice });
+          saveCurrentChat();
+          return;
+        }
+
+        await sendVideoMessage(text);
+        return;
+      }
+
       if (selectedImageFile && !canUseImageFeature()) return;
 
       if (selectedImageFile) {
-
-        if (selectedChatMode === "video") {
-          if (!currentUser && !isAdminUser()) {
-            signupPrompt();
-            showAuthMessage("Please create a free account to generate videos.");
-            return;
-          }
-          await sendVideoMessage(text);
-          return;
-        }
 
         if (!currentUser && !isAdminUser()) {
           signupPrompt();
@@ -3445,10 +3459,14 @@
 
       try {
 
+        /* This guard is intentionally kept before image detection so a
+           Video-mode request can NEVER fall through to /api/image. */
         if (selectedChatMode === "video") {
           typingMessage.remove();
-          addMessage("Video mode needs a reference image. Choose Video from + and upload an image, then press Send.", "bot", currentChat.length);
-          currentChat.push({ role: "bot", content: "Video mode needs a reference image. Choose Video from + and upload an image, then press Send." });
+          const videoNotice =
+            "Video mode needs a reference image. Choose Video from +, upload an image, then press Send.";
+          addMessage(videoNotice, "bot", currentChat.length);
+          currentChat.push({ role: "bot", content: videoNotice });
           saveCurrentChat();
           return;
         }
