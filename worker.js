@@ -443,13 +443,14 @@ M. Rayyan Khan is my owner.
         );
       }
 
+      // IMPORTANT:
+      // Do not send "seed" here.
+      // Cloudflare Workers AI currently rejects
+      // the seed property for this FLUX model.
       const result = await env.AI.run(
         CF_MODELS.image,
         {
           prompt: String(prompt).trim(),
-          seed: Math.floor(
-            Math.random() * 1000000000
-          ),
         }
       );
 
