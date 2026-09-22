@@ -13,6 +13,7 @@ export default {
       coding: "@cf/qwen/qwen2.5-coder-32b-instruct",
       solver: "@cf/qwen/qwen2.5-coder-32b-instruct",
       guard: "@cf/meta/llama-guard-3-8b",
+      image: "@cf/black-forest-labs/flux-2-dev",
     };
 
     // =========================================================
@@ -424,6 +425,87 @@ M. Rayyan Khan is my owner.
     }
 
     // =========================================================
+    // FLUX.2 DEV IMAGE GENERATION
+    // =========================================================
+
+    async function generateImage(prompt) {
+      if (!env.AI) {
+        throw new Error(
+          "Cloudflare AI binding (AI) is not configured."
+        );
+      }
+
+      if (!prompt || !String(prompt).trim()) {
+        throw new Error(
+          "An image prompt is required."
+        );
+      }
+
+      const form = new FormData();
+
+      form.append(
+        "prompt",
+        String(prompt).trim()
+      );
+
+      // Balanced default settings.
+      form.append("steps", "25");
+      form.append("width", "1024");
+      form.append("height", "1024");
+
+      // Cloudflare Workers AI expects multipart form data
+      // for FLUX.2 [dev].
+      const dummyRequest = new Request(
+        "https://chatabot-image.local",
+        {
+          method: "POST",
+          body: form,
+        }
+      );
+
+      const body = dummyRequest.body;
+
+      if (!body) {
+        throw new Error(
+          "Could not create image-generation request body."
+        );
+      }
+
+      const contentType =
+        dummyRequest.headers.get(
+          "content-type"
+        ) ||
+        "multipart/form-data";
+
+      const result = await env.AI.run(
+        CF_MODELS.image,
+        {
+          multipart: {
+            body,
+            contentType,
+          },
+        }
+      );
+
+      if (!result) {
+        throw new Error(
+          "FLUX.2 [dev] returned an empty response."
+        );
+      }
+
+      if (
+        typeof result.image !== "string" ||
+        !result.image
+      ) {
+        throw new Error(
+          "FLUX.2 [dev] did not return an image."
+        );
+      }
+
+      return result.image;
+    }
+
+    // =========================================================
     // BUILD GEMINI INPUT
     // =========================================================
 
@@ -530,22 +612,56 @@ Assistant:`;
           );
 
         // -------------------------------------------------------
-        // IMAGE REQUESTS
+        // IMAGE GENERATION
         // -------------------------------------------------------
 
         if (
           agent ===
           "image-generation"
         ) {
-          return jsonResponse({
-            success: false,
-            type:
-              "image-generation",
-            agent:
-              "Image Generation Agent",
-            message:
-              "Image generation is not connected yet. The Chatabot routing system is ready for a dedicated image-generation provider.",
-          });
+          try {
+            const image =
+              await generateImage(
+                lastUserMessage
+              );
+
+            return jsonResponse({
+              success: true,
+              type:
+                "image-generation",
+              agent:
+                "Image Generation Agent",
+              provider:
+                "cloudflare",
+              model:
+                CF_MODELS.image,
+              prompt:
+                lastUserMessage,
+              image,
+              mimeType:
+                "image/png",
+            });
+          } catch (imageError) {
+            console.error(
+              "FLUX image generation failed:",
+              imageError?.message ||
+                imageError
+            );
+
+            return jsonResponse(
+              {
+                success: false,
+                type:
+                  "image-generation",
+                agent:
+                  "Image Generation Agent",
+                error:
+                  imageError?.message ||
+                  "Image generation failed.",
+              },
+              500
+            );
+          }
         }
 
         // -------------------------------------------------------
@@ -693,6 +809,71 @@ Assistant:`;
     }
 
     // =========================================================
+    // DIRECT IMAGE API
+    // =========================================================
+
+    if (
+      url.pathname ===
+        "/api/image" &&
+      request.method === "POST"
+    ) {
+      try {
+        const body =
+          await request.json();
+
+        const prompt =
+          String(
+            body?.prompt || ""
+          ).trim();
+
+        if (!prompt) {
+          return jsonResponse(
+            {
+              success: false,
+              error:
+                "Image prompt is required.",
+            },
+            400
+          );
+        }
+
+        const image =
+          await generateImage(
+            prompt
+          );
+
+        return jsonResponse({
+          success: true,
+          type:
+            "image-generation",
+          provider:
+            "cloudflare",
+          model:
+            CF_MODELS.image,
+          prompt,
+          image,
+          mimeType:
+            "image/png",
+        });
+      } catch (error) {
+        console.error(
+          "Direct image API error:",
+          error
+        );
+
+        return jsonResponse(
+          {
+            success: false,
+            error:
+              error?.message ||
+              "Image generation failed.",
+          },
+          500
+        );
+      }
+    }
+
+    // =========================================================
     // API HEALTH CHECK
     // =========================================================
 
@@ -714,6 +895,8 @@ Assistant:`;
           Boolean(env.AI),
         assets:
           Boolean(env.ASSETS),
+        imageModel:
+          CF_MODELS.image,
       });
     }
 
