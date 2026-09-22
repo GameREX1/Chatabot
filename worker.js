@@ -1,4 +1,3 @@
-```js
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -14,12 +13,7 @@ export default {
       coding: "@cf/qwen/qwen2.5-coder-32b-instruct",
       solver: "@cf/qwen/qwen2.5-coder-32b-instruct",
       guard: "@cf/meta/llama-guard-3-8b",
-
-      // Primary image model
       image: "@cf/black-forest-labs/flux-2-dev",
-
-      // Automatic fallback image model
-      imageFallback: "@cf/black-forest-labs/flux-1-schnell",
     };
 
     // =========================================================
@@ -76,8 +70,8 @@ REASONING:
 - Think carefully before answering.
 - Break complicated problems into logical steps when useful.
 - For mathematics, calculate carefully and verify the result.
-- For programming, reason about the code before suggesting a solution.
-- When debugging, identify the likely cause before proposing a fix.
+- For programming, reason about the code before suggesting a fix.
+- When debugging, identify the likely cause before proposing a solution.
 
 VISION:
 - Analyze images supplied by the user when supported by the selected provider.
@@ -434,7 +428,7 @@ M. Rayyan Khan is my owner.
     // FLUX.2 DEV IMAGE GENERATION
     // =========================================================
 
-    async function generateFlux2Image(prompt) {
+    async function generateImage(prompt) {
       if (!env.AI) {
         throw new Error(
           "Cloudflare AI binding (AI) is not configured."
@@ -454,10 +448,13 @@ M. Rayyan Khan is my owner.
         String(prompt).trim()
       );
 
+      // Balanced default settings.
       form.append("steps", "25");
       form.append("width", "1024");
       form.append("height", "1024");
 
+      // Cloudflare Workers AI expects multipart form data
+      // for FLUX.2 [dev].
       const dummyRequest = new Request(
         "https://chatabot-image.local",
         {
@@ -506,136 +503,6 @@ M. Rayyan Khan is my owner.
       }
 
       return result.image;
-    }
-
-    // =========================================================
-    // FLUX.1 SCHNELL IMAGE GENERATION
-    // =========================================================
-
-    async function generateFlux1SchnellImage(prompt) {
-      if (!env.AI) {
-        throw new Error(
-          "Cloudflare AI binding (AI) is not configured."
-        );
-      }
-
-      if (!prompt || !String(prompt).trim()) {
-        throw new Error(
-          "An image prompt is required."
-        );
-      }
-
-      const result = await env.AI.run(
-        CF_MODELS.imageFallback,
-        {
-          prompt: String(prompt).trim(),
-          seed: Math.floor(
-            Math.random() * 2147483647
-          ),
-          steps: 4,
-        }
-      );
-
-      if (!result) {
-        throw new Error(
-          "FLUX.1 [schnell] returned an empty response."
-        );
-      }
-
-      if (
-        typeof result.image !== "string" ||
-        !result.image
-      ) {
-        throw new Error(
-          "FLUX.1 [schnell] did not return an image."
-        );
-      }
-
-      return result.image;
-    }
-
-    // =========================================================
-    // AUTOMATIC IMAGE MODEL FALLBACK
-    // =========================================================
-    //
-    // Order:
-    // 1. FLUX.2 Dev
-    // 2. FLUX.1 Schnell
-    //
-    // User does not select the model.
-    // If the first model fails, the next model is tried.
-    // =========================================================
-
-    async function generateImage(prompt) {
-      const errors = [];
-
-      // -------------------------------------------------------
-      // MODEL 1: FLUX.2 DEV
-      // -------------------------------------------------------
-
-      try {
-        const image =
-          await generateFlux2Image(
-            prompt
-          );
-
-        return {
-          image,
-          model: CF_MODELS.image,
-        };
-      } catch (error) {
-        console.error(
-          "FLUX.2 Dev failed, trying FLUX.1 Schnell:",
-          error?.message || error
-        );
-
-        errors.push({
-          model: CF_MODELS.image,
-          error:
-            error?.message ||
-            "FLUX.2 Dev failed.",
-        });
-      }
-
-      // -------------------------------------------------------
-      // MODEL 2: FLUX.1 SCHNELL
-      // -------------------------------------------------------
-
-      try {
-        const image =
-          await generateFlux1SchnellImage(
-            prompt
-          );
-
-        return {
-          image,
-          model:
-            CF_MODELS.imageFallback,
-        };
-      } catch (error) {
-        console.error(
-          "FLUX.1 Schnell failed:",
-          error?.message || error
-        );
-
-        errors.push({
-          model:
-            CF_MODELS.imageFallback,
-          error:
-            error?.message ||
-            "FLUX.1 Schnell failed.",
-        });
-      }
-
-      // -------------------------------------------------------
-      // ALL IMAGE MODELS FAILED
-      // -------------------------------------------------------
-
-      throw new Error(
-        `All image-generation models failed. ${JSON.stringify(
-          errors
-        )}`
-      );
     }
 
     // =========================================================
@@ -753,7 +620,7 @@ Assistant:`;
           "image-generation"
         ) {
           try {
-            const generated =
+            const image =
               await generateImage(
                 lastUserMessage
               );
@@ -767,17 +634,16 @@ Assistant:`;
               provider:
                 "cloudflare",
               model:
-                generated.model,
+                CF_MODELS.image,
               prompt:
                 lastUserMessage,
-              image:
-                generated.image,
+              image,
               mimeType:
                 "image/png",
             });
           } catch (imageError) {
             console.error(
-              "All FLUX image generation failed:",
+              "FLUX image generation failed:",
               imageError?.message ||
                 imageError
             );
@@ -971,7 +837,7 @@ Assistant:`;
           );
         }
 
-        const generated =
+        const image =
           await generateImage(
             prompt
           );
@@ -983,10 +849,9 @@ Assistant:`;
           provider:
             "cloudflare",
           model:
-            generated.model,
+            CF_MODELS.image,
           prompt,
-          image:
-            generated.image,
+          image,
           mimeType:
             "image/png",
         });
@@ -1030,11 +895,8 @@ Assistant:`;
           Boolean(env.AI),
         assets:
           Boolean(env.ASSETS),
-
-        imageModels: [
+        imageModel:
           CF_MODELS.image,
-          CF_MODELS.imageFallback,
-        ],
       });
     }
 
@@ -1065,4 +927,3 @@ Assistant:`;
     );
   },
 };
-```
