@@ -8,6 +8,9 @@ export default {
 
     const GEMINI_CHAT_MODEL = "gemini-2.5-flash";
 
+    const HUNYUAN_SPACE =
+      "https://multimodalart-hunyuan-video-1-5.hf.space";
+
     const CF_MODELS = {
       chat: "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
       coding: "@cf/qwen/qwen2.5-coder-32b-instruct",
@@ -443,10 +446,6 @@ M. Rayyan Khan is my owner.
         );
       }
 
-      // IMPORTANT:
-      // Do not send "seed" here.
-      // Cloudflare Workers AI currently rejects
-      // the seed property for this FLUX model.
       const result = await env.AI.run(
         CF_MODELS.image,
         {
@@ -470,6 +469,478 @@ M. Rayyan Khan is my owner.
       }
 
       return result.image;
+    }
+
+    // =========================================================
+    // HUNYUANVIDEO HELPERS
+    // =========================================================
+
+    function getHFHeaders() {
+      if (!env.HF_TOKEN) {
+        throw new Error(
+          "HF_TOKEN is not configured in Cloudflare Worker Secrets."
+        );
+      }
+
+      return {
+        Authorization:
+          `Bearer ${env.HF_TOKEN}`,
+      };
+    }
+
+    async function uploadImageToHunyuan(imageInput) {
+      if (!imageInput) {
+        throw new Error(
+          "A reference image is required for HunyuanVideo."
+        );
+      }
+
+      // -------------------------------------------------------
+      // Public image URL
+      // -------------------------------------------------------
+
+      if (
+        typeof imageInput === "string" &&
+        /^https?:\/\//i.test(
+          imageInput
+        )
+      ) {
+        return {
+          path: imageInput,
+          url: imageInput,
+          orig_name: "reference-image",
+          mime_type: "image/jpeg",
+          meta: {
+            _type: "gradio.FileData",
+          },
+        };
+      }
+
+      // -------------------------------------------------------
+      // Data URL / base64 image
+      // -------------------------------------------------------
+
+      if (
+        typeof imageInput === "string" &&
+        imageInput.startsWith(
+          "data:image/"
+        )
+      ) {
+        const match =
+          imageInput.match(
+            /^data:(image\/[^;]+);base64,(.+)$/s
+          );
+
+        if (!match) {
+          throw new Error(
+            "Invalid image data URL."
+          );
+        }
+
+        const mimeType =
+          match[1];
+
+        const base64 =
+          match[2];
+
+        const binary =
+          Uint8Array.from(
+            atob(base64),
+            (char) =>
+              char.charCodeAt(0)
+          );
+
+        const extension =
+          mimeType.includes("png")
+            ? "png"
+            : mimeType.includes("webp")
+            ? "webp"
+            : "jpg";
+
+        const blob =
+          new Blob(
+            [binary],
+            {
+              type: mimeType,
+            }
+          );
+
+        const form =
+          new FormData();
+
+        form.append(
+          "files",
+          blob,
+          `chatabot-reference.${extension}`
+        );
+
+        const response =
+          await fetch(
+            `${HUNYUAN_SPACE}/gradio_api/upload`,
+            {
+              method: "POST",
+              headers:
+                getHFHeaders(),
+              body: form,
+            }
+          );
+
+        const raw =
+          await response.text();
+
+        if (!response.ok) {
+          throw new Error(
+            `Hunyuan image upload failed (${response.status}): ${raw}`
+          );
+        }
+
+        let uploaded;
+
+        try {
+          uploaded =
+            JSON.parse(raw);
+        } catch {
+          throw new Error(
+            "Hunyuan image upload returned invalid JSON."
+          );
+        }
+
+        const path =
+          Array.isArray(uploaded)
+            ? uploaded[0]
+            : uploaded?.path;
+
+        if (!path) {
+          throw new Error(
+            "Hunyuan image upload did not return a file path."
+          );
+        }
+
+        return {
+          path,
+          orig_name:
+            `chatabot-reference.${extension}`,
+          mime_type:
+            mimeType,
+          meta: {
+            _type:
+              "gradio.FileData",
+          },
+        };
+      }
+
+      // -------------------------------------------------------
+      // Already-formatted Gradio FileData
+      // -------------------------------------------------------
+
+      if (
+        typeof imageInput === "object" &&
+        imageInput.path
+      ) {
+        return {
+          path:
+            imageInput.path,
+          url:
+            imageInput.url ||
+            null,
+          orig_name:
+            imageInput.orig_name ||
+            "reference-image",
+          mime_type:
+            imageInput.mime_type ||
+            "image/jpeg",
+          meta: {
+            _type:
+              "gradio.FileData",
+          },
+        };
+      }
+
+      throw new Error(
+        "Unsupported reference image format."
+      );
+    }
+
+    async function readHunyuanResult(
+      response
+    ) {
+      const text =
+        await response.text();
+
+      if (!response.ok) {
+        throw new Error(
+          `HunyuanVideo polling failed (${response.status}): ${text}`
+        );
+      }
+
+      // Gradio returns Server-Sent Events.
+      const events =
+        text
+          .split(/\n\n+/)
+          .map(
+            (block) =>
+              block.trim()
+          )
+          .filter(Boolean);
+
+      let lastData = null;
+
+      for (const block of events) {
+        const dataLine =
+          block
+            .split("\n")
+            .find((line) =>
+              line.startsWith(
+                "data:"
+              )
+            );
+
+        if (!dataLine) {
+          continue;
+        }
+
+        const rawData =
+          dataLine
+            .slice(5)
+            .trim();
+
+        if (
+          !rawData ||
+          rawData ===
+            "[DONE]"
+        ) {
+          continue;
+        }
+
+        try {
+          const parsed =
+            JSON.parse(
+              rawData
+            );
+
+          lastData = parsed;
+
+          // Error returned by Gradio.
+          if (
+            parsed &&
+            typeof parsed ===
+              "object" &&
+            parsed.error
+          ) {
+            throw new Error(
+              String(
+                parsed.error
+              )
+            );
+          }
+
+          // A completed prediction normally
+          // contains an array with output values.
+          if (
+            Array.isArray(
+              parsed
+            ) &&
+            parsed.length
+          ) {
+            const video =
+              parsed[0];
+
+            const actualPrompt =
+              parsed[1];
+
+            return {
+              complete: true,
+              video,
+              actualPrompt:
+                actualPrompt ||
+                "",
+            };
+          }
+        } catch (error) {
+          if (
+            error?.message &&
+            !String(
+              error.message
+            ).includes(
+              "Unexpected token"
+            )
+          ) {
+            throw error;
+          }
+        }
+      }
+
+      return {
+        complete: false,
+        lastData,
+      };
+    }
+
+    async function generateHunyuanVideo({
+      image,
+      prompt,
+      length = 61,
+      steps = 6,
+      shift = 5,
+      seed = -1,
+      guidance = 1,
+      doRewrite = true,
+    }) {
+      if (!prompt || !String(prompt).trim()) {
+        throw new Error(
+          "A video prompt is required."
+        );
+      }
+
+      if (!env.HF_TOKEN) {
+        throw new Error(
+          "HF_TOKEN is missing. Add your Hugging Face token as a Cloudflare Worker Secret."
+        );
+      }
+
+      // Upload/reference image.
+      const fileData =
+        await uploadImageToHunyuan(
+          image
+        );
+
+      // -------------------------------------------------------
+      // Start Gradio job
+      // -------------------------------------------------------
+
+      const startResponse =
+        await fetch(
+          `${HUNYUAN_SPACE}/gradio_api/call/generate`,
+          {
+            method: "POST",
+            headers: {
+              ...getHFHeaders(),
+              "Content-Type":
+                "application/json",
+            },
+            body: JSON.stringify({
+              data: [
+                fileData,
+                String(
+                  prompt
+                ).trim(),
+                Number(
+                  length
+                ),
+                Number(
+                  steps
+                ),
+                Number(
+                  shift
+                ),
+                Number(
+                  seed
+                ),
+                Number(
+                  guidance
+                ),
+                Boolean(
+                  doRewrite
+                ),
+              ],
+            }),
+          }
+        );
+
+      const startRaw =
+        await startResponse.text();
+
+      if (!startResponse.ok) {
+        throw new Error(
+          `HunyuanVideo job start failed (${startResponse.status}): ${startRaw}`
+        );
+      }
+
+      let startData;
+
+      try {
+        startData =
+          JSON.parse(
+            startRaw
+          );
+      } catch {
+        throw new Error(
+          `HunyuanVideo returned an invalid job response: ${startRaw}`
+        );
+      }
+
+      const eventId =
+        startData?.event_id;
+
+      if (!eventId) {
+        throw new Error(
+          "HunyuanVideo did not return an event ID."
+        );
+      }
+
+      // -------------------------------------------------------
+      // Poll Gradio job
+      // -------------------------------------------------------
+
+      const maxAttempts = 120;
+
+      for (
+        let attempt = 0;
+        attempt <
+        maxAttempts;
+        attempt++
+      ) {
+        await new Promise(
+          (resolve) =>
+            setTimeout(
+              resolve,
+              2500
+            )
+        );
+
+        const pollResponse =
+          await fetch(
+            `${HUNYUAN_SPACE}/gradio_api/call/generate/${encodeURIComponent(
+              eventId
+            )}`,
+            {
+              method: "GET",
+              headers:
+                getHFHeaders(),
+            }
+          );
+
+        const result =
+          await readHunyuanResult(
+            pollResponse
+          );
+
+        if (
+          result.complete
+        ) {
+          const video =
+            result.video;
+
+          if (!video) {
+            throw new Error(
+              "HunyuanVideo completed but returned no video."
+            );
+          }
+
+          return {
+            video,
+            actualPrompt:
+              result.actualPrompt ||
+              String(
+                prompt
+              ).trim(),
+          };
+        }
+      }
+
+      throw new Error(
+        "HunyuanVideo generation timed out while waiting for the Space."
+      );
     }
 
     // =========================================================
@@ -646,7 +1117,7 @@ Assistant:`;
             agent:
               "Video Generation Agent",
             message:
-              "Video generation is not connected yet. The Chatabot routing system is ready for a dedicated video-generation provider.",
+              "HunyuanVideo is connected through /api/video. A reference image is required because the current HunyuanVideo Space is Image-to-Video.",
           });
         }
 
@@ -841,6 +1312,118 @@ Assistant:`;
     }
 
     // =========================================================
+    // DIRECT HUNYUANVIDEO API
+    // =========================================================
+
+    if (
+      url.pathname ===
+        "/api/video" &&
+      request.method === "POST"
+    ) {
+      try {
+        const body =
+          await request.json();
+
+        const prompt =
+          String(
+            body?.prompt || ""
+          ).trim();
+
+        const image =
+          body?.image ||
+          body?.input_image ||
+          body?.referenceImage ||
+          null;
+
+        if (!image) {
+          return jsonResponse(
+            {
+              success: false,
+              type:
+                "video-generation",
+              error:
+                "A reference image is required for HunyuanVideo Image-to-Video.",
+            },
+            400
+          );
+        }
+
+        if (!prompt) {
+          return jsonResponse(
+            {
+              success: false,
+              type:
+                "video-generation",
+              error:
+                "A video prompt is required.",
+            },
+            400
+          );
+        }
+
+        const result =
+          await generateHunyuanVideo({
+            image,
+            prompt,
+            length:
+              body?.length ??
+              61,
+            steps:
+              body?.steps ??
+              6,
+            shift:
+              body?.shift ??
+              5,
+            seed:
+              body?.seed ??
+              -1,
+            guidance:
+              body?.guidance ??
+              1,
+            doRewrite:
+              body?.doRewrite ??
+              true,
+          });
+
+        return jsonResponse({
+          success: true,
+          type:
+            "video-generation",
+          agent:
+            "Video Generation Agent",
+          provider:
+            "huggingface",
+          model:
+            "Tencent HunyuanVideo 1.5",
+          prompt,
+          actualPrompt:
+            result.actualPrompt,
+          video:
+            result.video,
+          mimeType:
+            "video/mp4",
+        });
+      } catch (error) {
+        console.error(
+          "HunyuanVideo API error:",
+          error
+        );
+
+        return jsonResponse(
+          {
+            success: false,
+            type:
+              "video-generation",
+            error:
+              error?.message ||
+              "HunyuanVideo generation failed.",
+          },
+          500
+        );
+      }
+    }
+
+    // =========================================================
     // API HEALTH CHECK
     // =========================================================
 
@@ -864,6 +1447,14 @@ Assistant:`;
           Boolean(env.ASSETS),
         imageModel:
           CF_MODELS.image,
+        videoModel:
+          "Tencent HunyuanVideo 1.5",
+        videoProvider:
+          "Hugging Face ZeroGPU",
+        videoEndpoint:
+          "/api/video",
+        hunyuanToken:
+          Boolean(env.HF_TOKEN),
       });
     }
 
