@@ -968,8 +968,28 @@
       max-width: 900px;
       margin: 0 auto 8px;
       display: none;
+      align-items: center;
+      justify-content: space-between;
       color: #aaa;
       font-size: 12px;
+      background: #111;
+      border: 1px solid #303030;
+      border-radius: 10px;
+      padding: 8px 10px;
+    }
+
+    .editing-cancel {
+      border: none;
+      background: transparent;
+      color: #888;
+      font-size: 18px;
+      line-height: 1;
+      cursor: pointer;
+      padding: 0 2px;
+    }
+
+    .editing-cancel:hover {
+      color: white;
     }
 
     .upload-preview {
@@ -1856,6 +1876,42 @@
       <!-- INPUT -->
 
       <div class="input-wrapper">
+
+        <div
+          class="editing-indicator"
+          id="editingIndicator"
+        >
+          <span>Editing message</span>
+          <button
+            type="button"
+            class="editing-cancel"
+            onclick="cancelEditMessage()"
+            title="Cancel edit"
+          >
+            ×
+          </button>
+        </div>
+
+        <div
+          class="selected-context-box"
+          id="selectedContextBox"
+        >
+          <div class="selected-context-content">
+            <div class="selected-context-title">Selected text</div>
+            <div
+              class="selected-context-text"
+              id="selectedContextText"
+            ></div>
+          </div>
+          <button
+            type="button"
+            class="selected-context-close"
+            onclick="clearSelectedContext()"
+            title="Remove selected text"
+          >
+            ×
+          </button>
+        </div>
 
         <div
           class="upload-preview"
@@ -3078,21 +3134,41 @@
 
       removeWelcome();
 
-      const userIndex = currentChat.length;
       const messageContent = text;
 
-      addMessage(
-        messageContent,
-        "user",
-        userIndex
-      );
+      if (isEditing) {
 
-      currentChat.push({
-        role: "user",
-        content: messageContent,
-        ...(context ? { selectedContext: context } : {}),
-        ...(isEditing ? { editedFrom: editingMessageIndex } : {})
-      });
+        /* Replace the existing user message instead of adding a duplicate.
+           Everything after that message is removed so the new answer is
+           generated from the edited conversation. */
+        const editIndex = editingMessageIndex;
+        const oldMessage = currentChat[editIndex];
+
+        currentChat = currentChat.slice(0, editIndex + 1);
+        currentChat[editIndex] = {
+          ...(oldMessage || {}),
+          role: "user",
+          content: messageContent,
+          ...(context ? { selectedContext: context } : {})
+        };
+
+        renderCurrentChat();
+
+      } else {
+
+        addMessage(
+          messageContent,
+          "user",
+          currentChat.length
+        );
+
+        currentChat.push({
+          role: "user",
+          content: messageContent,
+          ...(context ? { selectedContext: context } : {})
+        });
+
+      }
 
       editingMessageIndex = null;
 
@@ -3878,14 +3954,30 @@
       resizeTextarea();
 
       if (editingIndicator) {
-        editingIndicator.style.display = "block";
+        editingIndicator.style.display = "flex";
       }
 
+      clearSelectedContext();
       input.focus();
       input.setSelectionRange(
         input.value.length,
         input.value.length
       );
+
+    }
+
+
+    function cancelEditMessage() {
+
+      editingMessageIndex = null;
+      input.value = "";
+      resizeTextarea();
+
+      if (editingIndicator) {
+        editingIndicator.style.display = "none";
+      }
+
+      input.focus();
 
     }
 
