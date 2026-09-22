@@ -119,18 +119,29 @@ M. Rayyan Khan is my owner.
     function detectAgent(text) {
       const value = String(text || "").toLowerCase();
 
+      // VIDEO MUST BE CHECKED BEFORE IMAGE.
+      // This prevents prompts containing visual words from
+      // accidentally being treated as image generation.
+
+      if (
+        /\b(generate|create|make|produce|animate)\b/.test(value) &&
+        /\b(video|animation|clip|movie|film)\b/.test(value)
+      ) {
+        return "video-generation";
+      }
+
+      if (
+        /\b(video|animation|clip|movie|film)\b/.test(value) &&
+        /\b(tiger|animal|person|people|scene|character|object|ball|car|nature)\b/.test(value)
+      ) {
+        return "video-generation";
+      }
+
       if (
         /\b(generate|create|make|draw)\b/.test(value) &&
         /\b(image|picture|photo|art|wallpaper|logo)\b/.test(value)
       ) {
         return "image-generation";
-      }
-
-      if (
-        /\b(generate|create|make)\b/.test(value) &&
-        /\b(video|animation|clip)\b/.test(value)
-      ) {
-        return "video-generation";
       }
 
       if (
@@ -673,7 +684,6 @@ M. Rayyan Khan is my owner.
         );
       }
 
-      // Gradio returns Server-Sent Events.
       const events =
         text
           .split(/\n\n+/)
@@ -720,7 +730,6 @@ M. Rayyan Khan is my owner.
 
           lastData = parsed;
 
-          // Error returned by Gradio.
           if (
             parsed &&
             typeof parsed ===
@@ -734,8 +743,6 @@ M. Rayyan Khan is my owner.
             );
           }
 
-          // A completed prediction normally
-          // contains an array with output values.
           if (
             Array.isArray(
               parsed
@@ -776,6 +783,10 @@ M. Rayyan Khan is my owner.
       };
     }
 
+    // =========================================================
+    // HUNYUANVIDEO GENERATION
+    // =========================================================
+
     async function generateHunyuanVideo({
       image,
       prompt,
@@ -795,6 +806,12 @@ M. Rayyan Khan is my owner.
       if (!env.HF_TOKEN) {
         throw new Error(
           "HF_TOKEN is missing. Add your Hugging Face token as a Cloudflare Worker Secret."
+        );
+      }
+
+      if (!image) {
+        throw new Error(
+          "HunyuanVideo requires a reference image."
         );
       }
 
@@ -944,6 +961,85 @@ M. Rayyan Khan is my owner.
     }
 
     // =========================================================
+    // PROMPT-ONLY VIDEO GENERATION
+    //
+    // FLOW:
+    // User prompt
+    //      ↓
+    // FLUX.1 Schnell
+    //      ↓
+    // Automatic reference image
+    //      ↓
+    // HunyuanVideo 1.5
+    //      ↓
+    // Video
+    // =========================================================
+
+    async function generatePromptOnlyVideo(prompt, options = {}) {
+      if (!prompt || !String(prompt).trim()) {
+        throw new Error(
+          "A video prompt is required."
+        );
+      }
+
+      const cleanPrompt =
+        String(prompt).trim();
+
+      // -------------------------------------------------------
+      // Step 1: Generate a reference image automatically
+      // -------------------------------------------------------
+
+      const referenceImage =
+        await generateImage(
+          cleanPrompt
+        );
+
+      if (
+        typeof referenceImage !== "string" ||
+        !referenceImage
+      ) {
+        throw new Error(
+          "FLUX failed to create the automatic reference image."
+        );
+      }
+
+      // -------------------------------------------------------
+      // Step 2: Send the generated image to HunyuanVideo
+      // -------------------------------------------------------
+
+      const result =
+        await generateHunyuanVideo({
+          image:
+            referenceImage,
+          prompt:
+            cleanPrompt,
+          length:
+            options.length ??
+            61,
+          steps:
+            options.steps ??
+            6,
+          shift:
+            options.shift ??
+            5,
+          seed:
+            options.seed ??
+            -1,
+          guidance:
+            options.guidance ??
+            1,
+          doRewrite:
+            options.doRewrite ??
+            true,
+        });
+
+      return {
+        ...result,
+        referenceImage,
+      };
+    }
+
+    // =========================================================
     // BUILD GEMINI INPUT
     // =========================================================
 
@@ -1050,6 +1146,72 @@ Assistant:`;
           );
 
         // -------------------------------------------------------
+        // VIDEO GENERATION
+        //
+        // If Video mode accidentally reaches /api/chat,
+        // still generate the video instead of returning
+        // a normal AI text response.
+        // -------------------------------------------------------
+
+        if (
+          agent ===
+          "video-generation"
+        ) {
+          try {
+            const result =
+              await generatePromptOnlyVideo(
+                lastUserMessage
+              );
+
+            return jsonResponse({
+              success: true,
+              type:
+                "video-generation",
+              agent:
+                "Video Generation Agent",
+              provider:
+                "huggingface",
+              imageProvider:
+                "cloudflare",
+              imageModel:
+                CF_MODELS.image,
+              model:
+                "Tencent HunyuanVideo 1.5",
+              prompt:
+                lastUserMessage,
+              actualPrompt:
+                result.actualPrompt,
+              referenceImage:
+                result.referenceImage,
+              video:
+                result.video,
+              mimeType:
+                "video/mp4",
+            });
+          } catch (videoError) {
+            console.error(
+              "Prompt-only video generation failed:",
+              videoError?.message ||
+                videoError
+            );
+
+            return jsonResponse(
+              {
+                success: false,
+                type:
+                  "video-generation",
+                agent:
+                  "Video Generation Agent",
+                error:
+                  videoError?.message ||
+                  "Video generation failed.",
+              },
+              500
+            );
+          }
+        }
+
+        // -------------------------------------------------------
         // IMAGE GENERATION
         // -------------------------------------------------------
 
@@ -1100,25 +1262,6 @@ Assistant:`;
               500
             );
           }
-        }
-
-        // -------------------------------------------------------
-        // VIDEO REQUESTS
-        // -------------------------------------------------------
-
-        if (
-          agent ===
-          "video-generation"
-        ) {
-          return jsonResponse({
-            success: false,
-            type:
-              "video-generation",
-            agent:
-              "Video Generation Agent",
-            message:
-              "HunyuanVideo is connected through /api/video. A reference image is required because the current HunyuanVideo Space is Image-to-Video.",
-          });
         }
 
         // -------------------------------------------------------
@@ -1205,7 +1348,8 @@ Assistant:`;
               agent,
               response:
                 answer,
-              text: answer,
+              text:
+                answer,
             });
           } catch (cfError) {
             console.error(
@@ -1335,19 +1479,6 @@ Assistant:`;
           body?.referenceImage ||
           null;
 
-        if (!image) {
-          return jsonResponse(
-            {
-              success: false,
-              type:
-                "video-generation",
-              error:
-                "A reference image is required for HunyuanVideo Image-to-Video.",
-            },
-            400
-          );
-        }
-
         if (!prompt) {
           return jsonResponse(
             {
@@ -1361,29 +1492,71 @@ Assistant:`;
           );
         }
 
-        const result =
-          await generateHunyuanVideo({
-            image,
-            prompt,
-            length:
-              body?.length ??
-              61,
-            steps:
-              body?.steps ??
-              6,
-            shift:
-              body?.shift ??
-              5,
-            seed:
-              body?.seed ??
-              -1,
-            guidance:
-              body?.guidance ??
-              1,
-            doRewrite:
-              body?.doRewrite ??
-              true,
-          });
+        let result;
+
+        // -------------------------------------------------------
+        // PROMPT ONLY
+        //
+        // No image supplied:
+        // FLUX → automatic reference image → HunyuanVideo
+        // -------------------------------------------------------
+
+        if (!image) {
+          result =
+            await generatePromptOnlyVideo(
+              prompt,
+              {
+                length:
+                  body?.length ??
+                  61,
+                steps:
+                  body?.steps ??
+                  6,
+                shift:
+                  body?.shift ??
+                  5,
+                seed:
+                  body?.seed ??
+                  -1,
+                guidance:
+                  body?.guidance ??
+                  1,
+                doRewrite:
+                  body?.doRewrite ??
+                  true,
+              }
+            );
+        } else {
+          // -----------------------------------------------------
+          // IMAGE + PROMPT
+          //
+          // Existing Image-to-Video functionality remains.
+          // -----------------------------------------------------
+
+          result =
+            await generateHunyuanVideo({
+              image,
+              prompt,
+              length:
+                body?.length ??
+                61,
+              steps:
+                body?.steps ??
+                6,
+              shift:
+                body?.shift ??
+                5,
+              seed:
+                body?.seed ??
+                -1,
+              guidance:
+                body?.guidance ??
+                1,
+              doRewrite:
+                body?.doRewrite ??
+                true,
+            });
+        }
 
         return jsonResponse({
           success: true,
@@ -1393,11 +1566,18 @@ Assistant:`;
             "Video Generation Agent",
           provider:
             "huggingface",
+          imageProvider:
+            "cloudflare",
+          imageModel:
+            CF_MODELS.image,
           model:
             "Tencent HunyuanVideo 1.5",
           prompt,
           actualPrompt:
             result.actualPrompt,
+          referenceImage:
+            result.referenceImage ||
+            null,
           video:
             result.video,
           mimeType:
@@ -1453,6 +1633,10 @@ Assistant:`;
           "Hugging Face ZeroGPU",
         videoEndpoint:
           "/api/video",
+        videoFlow:
+          "Prompt → FLUX → HunyuanVideo",
+        promptOnlyVideo:
+          true,
         hunyuanToken:
           Boolean(env.HF_TOKEN),
       });
