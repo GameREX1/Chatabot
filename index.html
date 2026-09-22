@@ -3221,7 +3221,7 @@
         button.classList.toggle("active", button.dataset.mode === mode);
       });
 
-      if (mode === "uploads" || mode === "video") {
+      if (mode === "uploads") {
         document.getElementById("fileInput")?.click();
       }
 
@@ -3369,16 +3369,6 @@
           return;
         }
 
-        if (!selectedImageFile) {
-          removeWelcome();
-          const videoNotice =
-            "Video mode needs a reference image. Choose Video from +, upload an image, then press Send.";
-          addMessage(videoNotice, "bot", currentChat.length);
-          currentChat.push({ role: "bot", content: videoNotice });
-          saveCurrentChat();
-          return;
-        }
-
         await sendVideoMessage(text);
         return;
       }
@@ -3458,18 +3448,6 @@
       const typingMessage = addTypingMessage();
 
       try {
-
-        /* This guard is intentionally kept before image detection so a
-           Video-mode request can NEVER fall through to /api/image. */
-        if (selectedChatMode === "video") {
-          typingMessage.remove();
-          const videoNotice =
-            "Video mode needs a reference image. Choose Video from +, upload an image, then press Send.";
-          addMessage(videoNotice, "bot", currentChat.length);
-          currentChat.push({ role: "bot", content: videoNotice });
-          saveCurrentChat();
-          return;
-        }
 
         if (selectedChatMode === "image" || isImageRequest(text)) {
 
@@ -3613,7 +3591,7 @@
     ========================= */
 
     async function sendVideoMessage(text) {
-      if (aiBusy || !selectedImageFile) return;
+      if (aiBusy) return;
 
       aiBusy = true;
       sendButton.disabled = true;
@@ -3621,18 +3599,34 @@
       const file = selectedImageFile;
 
       try {
-        const imageData = await compressImageForVision(file);
-        const prompt = text || "Create a smooth cinematic animation from this reference image.";
+        const prompt = text || (file
+          ? "Create a smooth cinematic animation from this reference image."
+          : "Create a smooth cinematic video based on this idea.");
+
+        let imageData = null;
+
+        /* Uploaded image is optional. Without one, /api/video
+           automatically creates a reference frame with FLUX. */
+        if (file) {
+          imageData = await compressImageForVision(file);
+        }
 
         removeWelcome();
-        addUserImageMessage(imageData, prompt, file.name);
+
+        if (imageData) {
+          addUserImageMessage(imageData, prompt, file.name);
+        } else {
+          addMessage(prompt, "user", currentChat.length);
+        }
 
         currentChat.push({
           role: "user",
           content: prompt,
-          imageUpload: true,
-          videoRequest: true,
-          imageName: file.name
+          ...(imageData ? {
+            imageUpload: true,
+            imageName: file.name
+          } : {}),
+          videoRequest: true
         });
 
         input.value = "";
@@ -3650,20 +3644,42 @@
             prompt,
             image: imageData,
             imageData,
-            mimeType: "image/jpeg"
+            mimeType: imageData ? "image/jpeg" : null
           })
         });
 
         let data = null;
-        try { data = await response.json(); } catch (e) { data = null; }
-
-        if (!response.ok) {
-          throw new Error(data?.details || data?.error || "Video generation failed.");
+        try {
+          data = await response.json();
+        } catch (e) {
+          data = null;
         }
 
-        const videoUrl = data?.video || data?.url || data?.videoUrl;
+        if (!response.ok) {
+          throw new Error(
+            data?.details ||
+            data?.error ||
+            "Video generation failed."
+          );
+        }
+
+        let videoUrl =
+          data?.video ||
+          data?.url ||
+          data?.videoUrl;
+
+        if (videoUrl && typeof videoUrl === "object") {
+          videoUrl =
+            videoUrl.url ||
+            videoUrl.path ||
+            videoUrl.name ||
+            null;
+        }
+
         if (!videoUrl) {
-          throw new Error("The video service did not return a video.");
+          throw new Error(
+            "The video service did not return a video."
+          );
         }
 
         typingMessage.remove();
@@ -3679,18 +3695,27 @@
 
       } catch (error) {
         console.error("Video error:", error);
-        document.querySelectorAll(".typing").forEach(typing => typing.closest(".message")?.remove());
-        const errorReply = "Video generation failed right now. Please try again with a reference image.";
+
+        document.querySelectorAll(".typing").forEach(typing => {
+          typing.closest(".message")?.remove();
+        });
+
+        const errorReply =
+          "Video generation failed right now. Please try again.";
+
         addMessage(errorReply, "bot", currentChat.length);
-        currentChat.push({ role: "bot", content: errorReply });
+        currentChat.push({
+          role: "bot",
+          content: errorReply
+        });
         saveCurrentChat();
+
       } finally {
         aiBusy = false;
         sendButton.disabled = false;
         input.focus();
       }
     }
-
     function addVideoMessage(videoUrl, prompt) {
       const wrapper = document.createElement("div");
       wrapper.className = "message bot";
