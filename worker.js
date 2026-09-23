@@ -936,7 +936,10 @@ M. Rayyan Khan is my owner.
       // Poll Gradio job
       // -------------------------------------------------------
 
-      const maxAttempts = 120;
+      // Hunyuan usually completes around a minute on the Space.
+      // Keep the Worker below the 50 external-subrequest limit on
+      // the Workers Free plan while still allowing enough time.
+      const maxAttempts = 30;
 
       for (
         let attempt = 0;
@@ -1330,7 +1333,8 @@ Assistant:`;
                 agent,
                 response:
                   answer,
-                text: answer,
+                text:
+                  answer,
               });
             }
           } catch (
