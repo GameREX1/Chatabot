@@ -17,7 +17,6 @@ export default {
       solver: "@cf/qwen/qwen2.5-coder-32b-instruct",
       guard: "@cf/meta/llama-guard-3-8b",
 
-      // FLUX.1 Schnell image generation
       image: "@cf/black-forest-labs/flux-1-schnell",
     };
 
@@ -119,10 +118,7 @@ M. Rayyan Khan is my owner.
     function detectAgent(text) {
       const value = String(text || "").toLowerCase();
 
-      // VIDEO MUST BE CHECKED BEFORE IMAGE.
-      // This prevents prompts containing visual words from
-      // accidentally being treated as image generation.
-
+      // VIDEO FIRST
       if (
         /\b(generate|create|make|produce|animate)\b/.test(value) &&
         /\b(video|animation|clip|movie|film)\b/.test(value)
@@ -132,11 +128,14 @@ M. Rayyan Khan is my owner.
 
       if (
         /\b(video|animation|clip|movie|film)\b/.test(value) &&
-        /\b(tiger|animal|person|people|scene|character|object|ball|car|nature)\b/.test(value)
+        /\b(tiger|animal|person|people|scene|character|object|ball|car|nature)\b/.test(
+          value
+        )
       ) {
         return "video-generation";
       }
 
+      // IMAGE
       if (
         /\b(generate|create|make|draw)\b/.test(value) &&
         /\b(image|picture|photo|art|wallpaper|logo)\b/.test(value)
@@ -144,6 +143,7 @@ M. Rayyan Khan is my owner.
         return "image-generation";
       }
 
+      // WEBSITE
       if (
         /\b(website|webpage|url|site|link)\b/.test(value) &&
         /\b(analy[sz]e|read|review|check|summari[sz]e|inspect)\b/.test(
@@ -153,6 +153,7 @@ M. Rayyan Khan is my owner.
         return "website-analysis";
       }
 
+      // CODING
       if (
         /\b(code|coding|program|programming|javascript|typescript|python|html|css|react|node|api|debug|bug|error|function|github)\b/.test(
           value
@@ -161,6 +162,7 @@ M. Rayyan Khan is my owner.
         return "coding";
       }
 
+      // SOLVER
       if (
         /\b(solve|calculate|equation|math|mathematics|physics|chemistry|derive|proof|problem)\b/.test(
           value
@@ -457,7 +459,6 @@ M. Rayyan Khan is my owner.
       const value =
         image.trim();
 
-      // Already a data URL
       if (
         /^data:image\//i.test(
           value
@@ -466,7 +467,6 @@ M. Rayyan Khan is my owner.
         return value;
       }
 
-      // Already a public image URL
       if (
         /^https?:\/\//i.test(
           value
@@ -475,7 +475,6 @@ M. Rayyan Khan is my owner.
         return value;
       }
 
-      // Raw base64 returned by Cloudflare Workers AI
       return `data:image/png;base64,${value}`;
     }
 
@@ -520,7 +519,7 @@ M. Rayyan Khan is my owner.
     }
 
     // =========================================================
-    // HUNYUANVIDEO HELPERS
+    // HUGGING FACE / HUNYUAN HELPERS
     // =========================================================
 
     function getHFHeaders() {
@@ -536,6 +535,10 @@ M. Rayyan Khan is my owner.
       };
     }
 
+    // =========================================================
+    // UPLOAD IMAGE TO HUNYUAN
+    // =========================================================
+
     async function uploadImageToHunyuan(imageInput) {
       if (!imageInput) {
         throw new Error(
@@ -544,7 +547,7 @@ M. Rayyan Khan is my owner.
       }
 
       // -------------------------------------------------------
-      // Public image URL
+      // Public URL
       // -------------------------------------------------------
 
       if (
@@ -556,7 +559,7 @@ M. Rayyan Khan is my owner.
         return {
           path: imageInput,
           url: imageInput,
-          orig_name: "reference-image",
+          orig_name: "reference-image.jpg",
           mime_type: "image/jpeg",
           meta: {
             _type: "gradio.FileData",
@@ -565,7 +568,7 @@ M. Rayyan Khan is my owner.
       }
 
       // -------------------------------------------------------
-      // Data URL / base64 image
+      // Data URL
       // -------------------------------------------------------
 
       if (
@@ -591,19 +594,32 @@ M. Rayyan Khan is my owner.
         const base64 =
           match[2];
 
-        const binary =
-          Uint8Array.from(
-            atob(base64),
-            (char) =>
-              char.charCodeAt(0)
-          );
+        let binary;
 
-        const extension =
+        try {
+          binary =
+            Uint8Array.from(
+              atob(base64),
+              (char) =>
+                char.charCodeAt(0)
+            );
+        } catch {
+          throw new Error(
+            "Failed to decode the reference image."
+          );
+        }
+
+        let extension = "jpg";
+
+        if (
           mimeType.includes("png")
-            ? "png"
-            : mimeType.includes("webp")
-            ? "webp"
-            : "jpg";
+        ) {
+          extension = "png";
+        } else if (
+          mimeType.includes("webp")
+        ) {
+          extension = "webp";
+        }
 
         const blob =
           new Blob(
@@ -649,18 +665,32 @@ M. Rayyan Khan is my owner.
             JSON.parse(raw);
         } catch {
           throw new Error(
-            "Hunyuan image upload returned invalid JSON."
+            `Hunyuan image upload returned invalid JSON: ${raw}`
           );
         }
 
-        const path =
-          Array.isArray(uploaded)
-            ? uploaded[0]
-            : uploaded?.path;
+        let path = null;
 
-        if (!path) {
+        if (Array.isArray(uploaded)) {
+          path =
+            uploaded[0];
+        } else if (
+          uploaded &&
+          typeof uploaded === "object"
+        ) {
+          path =
+            uploaded.path ||
+            uploaded.name ||
+            uploaded.file?.path ||
+            uploaded.file?.name;
+        }
+
+        if (
+          typeof path !== "string" ||
+          !path
+        ) {
           throw new Error(
-            "Hunyuan image upload did not return a file path."
+            `Hunyuan image upload did not return a valid file path: ${raw}`
           );
         }
 
@@ -678,7 +708,7 @@ M. Rayyan Khan is my owner.
       }
 
       // -------------------------------------------------------
-      // Already-formatted Gradio FileData
+      // Existing Gradio FileData
       // -------------------------------------------------------
 
       if (
@@ -709,6 +739,123 @@ M. Rayyan Khan is my owner.
       );
     }
 
+    // =========================================================
+    // EXTRACT VIDEO FROM GRADIO DATA
+    // =========================================================
+
+    function extractVideoFromData(parsed) {
+      if (!parsed) {
+        return null;
+      }
+
+      // Direct string URL/path
+      if (
+        typeof parsed === "string"
+      ) {
+        if (
+          /^https?:\/\//i.test(parsed) ||
+          parsed.startsWith("/")
+        ) {
+          return parsed;
+        }
+
+        return null;
+      }
+
+      // Array returned by Gradio
+      if (Array.isArray(parsed)) {
+        for (const item of parsed) {
+          const found =
+            extractVideoFromData(
+              item
+            );
+
+          if (found) {
+            return found;
+          }
+        }
+
+        return null;
+      }
+
+      // Object / FileData
+      if (
+        typeof parsed === "object"
+      ) {
+        if (
+          typeof parsed.url ===
+            "string" &&
+          parsed.url.trim()
+        ) {
+          return parsed.url.trim();
+        }
+
+        if (
+          typeof parsed.path ===
+            "string" &&
+          parsed.path.trim()
+        ) {
+          return parsed.path.trim();
+        }
+
+        if (
+          typeof parsed.name ===
+            "string" &&
+          parsed.name.trim()
+        ) {
+          return parsed.name.trim();
+        }
+
+        if (
+          parsed.video
+        ) {
+          return extractVideoFromData(
+            parsed.video
+          );
+        }
+
+        if (
+          parsed.value
+        ) {
+          return extractVideoFromData(
+            parsed.value
+          );
+        }
+
+        if (
+          parsed.data
+        ) {
+          return extractVideoFromData(
+            parsed.data
+          );
+        }
+
+        if (
+          Array.isArray(
+            parsed.output
+          )
+        ) {
+          return extractVideoFromData(
+            parsed.output
+          );
+        }
+
+        if (
+          parsed.output
+        ) {
+          return extractVideoFromData(
+            parsed.output
+          );
+        }
+      }
+
+      return null;
+    }
+
+    // =========================================================
+    // READ HUNYUAN SSE RESULT
+    // =========================================================
+
     async function readHunyuanResult(
       response
     ) {
@@ -721,7 +868,7 @@ M. Rayyan Khan is my owner.
         );
       }
 
-      const events =
+      const blocks =
         text
           .split(/\n\n+/)
           .map(
@@ -732,41 +879,49 @@ M. Rayyan Khan is my owner.
 
       let lastData = null;
 
-      for (const block of events) {
-        const dataLine =
-          block
-            .split("\n")
-            .find((line) =>
-              line.startsWith(
-                "data:"
-              )
-            );
+      for (const block of blocks) {
+        const lines =
+          block.split("\n");
 
-        if (!dataLine) {
-          continue;
-        }
+        for (const line of lines) {
+          if (
+            !line.startsWith(
+              "data:"
+            )
+          ) {
+            continue;
+          }
 
-        const rawData =
-          dataLine
-            .slice(5)
-            .trim();
+          const rawData =
+            line
+              .slice(5)
+              .trim();
 
-        if (
-          !rawData ||
-          rawData ===
-            "[DONE]"
-        ) {
-          continue;
-        }
+          if (
+            !rawData ||
+            rawData ===
+              "[DONE]"
+          ) {
+            continue;
+          }
 
-        try {
-          const parsed =
-            JSON.parse(
-              rawData
-            );
+          let parsed;
 
-          lastData = parsed;
+          try {
+            parsed =
+              JSON.parse(
+                rawData
+              );
+          } catch {
+            // Some Gradio responses may contain
+            // non-JSON status information.
+            continue;
+          }
 
+          lastData =
+            parsed;
+
+          // Error returned by the Space
           if (
             parsed &&
             typeof parsed ===
@@ -780,36 +935,19 @@ M. Rayyan Khan is my owner.
             );
           }
 
-          if (
-            Array.isArray(
+          // Gradio can return a FileData object,
+          // an array containing FileData,
+          // or another nested result.
+          const video =
+            extractVideoFromData(
               parsed
-            ) &&
-            parsed.length
-          ) {
-            const video =
-              parsed[0];
+            );
 
-            const actualPrompt =
-              parsed[1];
-
+          if (video) {
             return {
               complete: true,
               video,
-              actualPrompt:
-                actualPrompt ||
-                "",
             };
-          }
-        } catch (error) {
-          if (
-            error?.message &&
-            !String(
-              error.message
-            ).includes(
-              "Unexpected token"
-            )
-          ) {
-            throw error;
           }
         }
       }
@@ -822,6 +960,21 @@ M. Rayyan Khan is my owner.
 
     // =========================================================
     // HUNYUANVIDEO GENERATION
+    //
+    // CURRENT SPACE SIGNATURE:
+    //
+    // generate(
+    //   input_image,
+    //   prompt,
+    //   length,
+    //   steps,
+    //   shift,
+    //   seed,
+    //   guidance
+    // )
+    //
+    // IMPORTANT:
+    // doRewrite IS NOT SENT.
     // =========================================================
 
     async function generateHunyuanVideo({
@@ -832,9 +985,11 @@ M. Rayyan Khan is my owner.
       shift = 5,
       seed = -1,
       guidance = 1,
-      doRewrite = true,
     }) {
-      if (!prompt || !String(prompt).trim()) {
+      if (
+        !prompt ||
+        !String(prompt).trim()
+      ) {
         throw new Error(
           "A video prompt is required."
         );
@@ -852,7 +1007,10 @@ M. Rayyan Khan is my owner.
         );
       }
 
-      // Upload/reference image.
+      // -------------------------------------------------------
+      // Upload reference image
+      // -------------------------------------------------------
+
       const fileData =
         await uploadImageToHunyuan(
           image
@@ -872,6 +1030,9 @@ M. Rayyan Khan is my owner.
               "Content-Type":
                 "application/json",
             },
+
+            // EXACTLY 7 INPUTS.
+            // No doRewrite.
             body: JSON.stringify({
               data: [
                 fileData,
@@ -892,9 +1053,6 @@ M. Rayyan Khan is my owner.
                 ),
                 Number(
                   guidance
-                ),
-                Boolean(
-                  doRewrite
                 ),
               ],
             }),
@@ -928,18 +1086,18 @@ M. Rayyan Khan is my owner.
 
       if (!eventId) {
         throw new Error(
-          "HunyuanVideo did not return an event ID."
+          `HunyuanVideo did not return an event ID: ${startRaw}`
         );
       }
 
       // -------------------------------------------------------
-      // Poll Gradio job
+      // Poll job
       // -------------------------------------------------------
 
-      // Hunyuan usually completes around a minute on the Space.
-      // Keep the Worker below the 50 external-subrequest limit on
-      // the Workers Free plan while still allowing enough time.
       const maxAttempts = 30;
+
+      let lastPollData =
+        null;
 
       for (
         let attempt = 0;
@@ -947,11 +1105,12 @@ M. Rayyan Khan is my owner.
         maxAttempts;
         attempt++
       ) {
+        // 3 seconds between polls.
         await new Promise(
           (resolve) =>
             setTimeout(
               resolve,
-              2500
+              3000
             )
         );
 
@@ -972,22 +1131,17 @@ M. Rayyan Khan is my owner.
             pollResponse
           );
 
+        lastPollData =
+          result.lastData;
+
         if (
-          result.complete
+          result.complete &&
+          result.video
         ) {
-          const video =
-            result.video;
-
-          if (!video) {
-            throw new Error(
-              "HunyuanVideo completed but returned no video."
-            );
-          }
-
           return {
-            video,
+            video:
+              result.video,
             actualPrompt:
-              result.actualPrompt ||
               String(
                 prompt
               ).trim(),
@@ -996,37 +1150,46 @@ M. Rayyan Khan is my owner.
       }
 
       throw new Error(
-        "HunyuanVideo generation timed out while waiting for the Space."
+        `HunyuanVideo generation timed out after waiting for the Space. Last response: ${JSON.stringify(
+          lastPollData
+        )}`
       );
     }
 
     // =========================================================
-    // PROMPT-ONLY VIDEO GENERATION
+    // PROMPT-ONLY VIDEO
     //
-    // FLOW:
-    // User prompt
-    //      ↓
+    // Prompt
+    //   ↓
     // FLUX.1 Schnell
-    //      ↓
-    // Automatic reference image
-    //      ↓
+    //   ↓
+    // Reference image
+    //   ↓
     // HunyuanVideo 1.5
-    //      ↓
+    //   ↓
     // Video
     // =========================================================
 
-    async function generatePromptOnlyVideo(prompt, options = {}) {
-      if (!prompt || !String(prompt).trim()) {
+    async function generatePromptOnlyVideo(
+      prompt,
+      options = {}
+    ) {
+      if (
+        !prompt ||
+        !String(prompt).trim()
+      ) {
         throw new Error(
           "A video prompt is required."
         );
       }
 
       const cleanPrompt =
-        String(prompt).trim();
+        String(
+          prompt
+        ).trim();
 
       // -------------------------------------------------------
-      // Step 1: Generate a reference image automatically
+      // STEP 1 — Generate reference image
       // -------------------------------------------------------
 
       const referenceImage =
@@ -1035,7 +1198,8 @@ M. Rayyan Khan is my owner.
         );
 
       if (
-        typeof referenceImage !== "string" ||
+        typeof referenceImage !==
+          "string" ||
         !referenceImage
       ) {
         throw new Error(
@@ -1044,7 +1208,7 @@ M. Rayyan Khan is my owner.
       }
 
       // -------------------------------------------------------
-      // Step 2: Send the generated image to HunyuanVideo
+      // STEP 2 — Generate video
       // -------------------------------------------------------
 
       const result =
@@ -1068,9 +1232,6 @@ M. Rayyan Khan is my owner.
           guidance:
             options.guidance ??
             1,
-          doRewrite:
-            options.doRewrite ??
-            true,
         });
 
       return {
@@ -1185,13 +1346,9 @@ Assistant:`;
             lastUserMessage
           );
 
-        // -------------------------------------------------------
+        // =====================================================
         // VIDEO GENERATION
-        //
-        // If Video mode accidentally reaches /api/chat,
-        // still generate the video instead of returning
-        // a normal AI text response.
-        // -------------------------------------------------------
+        // =====================================================
 
         if (
           agent ===
@@ -1222,7 +1379,8 @@ Assistant:`;
               actualPrompt:
                 result.actualPrompt,
               referenceImage:
-                result.referenceImage,
+                result.referenceImage ||
+                null,
               video:
                 result.video,
               mimeType:
@@ -1251,9 +1409,9 @@ Assistant:`;
           }
         }
 
-        // -------------------------------------------------------
+        // =====================================================
         // IMAGE GENERATION
-        // -------------------------------------------------------
+        // =====================================================
 
         if (
           agent ===
@@ -1279,7 +1437,7 @@ Assistant:`;
                 lastUserMessage,
               image,
               mimeType:
-                "image/jpeg",
+                "image/png",
             });
           } catch (imageError) {
             console.error(
@@ -1304,11 +1462,13 @@ Assistant:`;
           }
         }
 
-        // -------------------------------------------------------
+        // =====================================================
         // GEMINI PRIMARY
-        // -------------------------------------------------------
+        // =====================================================
 
-        if (env.GEMINI_API_KEY) {
+        if (
+          env.GEMINI_API_KEY
+        ) {
           try {
             const input =
               buildGeminiInput(
@@ -1342,23 +1502,23 @@ Assistant:`;
           ) {
             console.error(
               "Gemini failed:",
-              geminiError
-                ?.message ||
+              geminiError?.message ||
                 geminiError
             );
           }
         }
 
-        // -------------------------------------------------------
+        // =====================================================
         // CLOUDFLARE FALLBACK
-        // -------------------------------------------------------
+        // =====================================================
 
         if (env.AI) {
           let model =
             CF_MODELS.chat;
 
           if (
-            agent === "coding"
+            agent ===
+            "coding"
           ) {
             model =
               CF_MODELS.coding;
@@ -1392,7 +1552,9 @@ Assistant:`;
               text:
                 answer,
             });
-          } catch (cfError) {
+          } catch (
+            cfError
+          ) {
             console.error(
               "Cloudflare AI failed:",
               cfError?.message ||
@@ -1401,9 +1563,9 @@ Assistant:`;
           }
         }
 
-        // -------------------------------------------------------
+        // =====================================================
         // NO PROVIDER
-        // -------------------------------------------------------
+        // =====================================================
 
         return jsonResponse(
           {
@@ -1476,7 +1638,7 @@ Assistant:`;
           prompt,
           image,
           mimeType:
-            "image/jpeg",
+            "image/png",
         });
       } catch (error) {
         console.error(
@@ -1497,7 +1659,7 @@ Assistant:`;
     }
 
     // =========================================================
-    // DIRECT HUNYUANVIDEO API
+    // DIRECT VIDEO API
     // =========================================================
 
     if (
@@ -1537,9 +1699,6 @@ Assistant:`;
 
         // -------------------------------------------------------
         // PROMPT ONLY
-        //
-        // No image supplied:
-        // FLUX → automatic reference image → HunyuanVideo
         // -------------------------------------------------------
 
         if (!image) {
@@ -1562,16 +1721,11 @@ Assistant:`;
                 guidance:
                   body?.guidance ??
                   1,
-                doRewrite:
-                  body?.doRewrite ??
-                  true,
               }
             );
         } else {
           // -----------------------------------------------------
           // IMAGE + PROMPT
-          //
-          // Existing Image-to-Video functionality remains.
           // -----------------------------------------------------
 
           result =
@@ -1593,9 +1747,6 @@ Assistant:`;
               guidance:
                 body?.guidance ??
                 1,
-              doRewrite:
-                body?.doRewrite ??
-                true,
             });
         }
 
@@ -1615,7 +1766,8 @@ Assistant:`;
             "Tencent HunyuanVideo 1.5",
           prompt,
           actualPrompt:
-            result.actualPrompt,
+            result.actualPrompt ||
+            prompt,
           referenceImage:
             result.referenceImage ||
             null,
@@ -1684,7 +1836,7 @@ Assistant:`;
     }
 
     // =========================================================
-    // SERVE FRONTEND / STATIC ASSETS
+    // SERVE FRONTEND
     // =========================================================
 
     if (env.ASSETS) {
