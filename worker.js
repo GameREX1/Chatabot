@@ -3,7 +3,7 @@ export default {
     const url = new URL(request.url);
 
     // =========================================================
-    // CHATABOT CONFIGURATION
+    // CHATABOT CONFIG
     // =========================================================
 
     const GEMINI_CHAT_MODEL = "gemini-2.5-flash";
@@ -13,10 +13,10 @@ export default {
 
     const CF_MODELS = {
       chat: "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+      reasoning: "@cf/qwen/qwen3-30b-a3b-fp8",
       coding: "@cf/qwen/qwen2.5-coder-32b-instruct",
-      solver: "@cf/qwen/qwen2.5-coder-32b-instruct",
+      solver: "@cf/qwen/qwen3-30b-a3b-fp8",
       guard: "@cf/meta/llama-guard-3-8b",
-
       image: "@cf/black-forest-labs/flux-1-schnell",
     };
 
@@ -43,10 +43,6 @@ export default {
       });
     }
 
-    // =========================================================
-    // CORS PREFLIGHT
-    // =========================================================
-
     if (request.method === "OPTIONS") {
       return new Response(null, {
         status: 204,
@@ -55,58 +51,90 @@ export default {
     }
 
     // =========================================================
-    // SYSTEM PROMPT
+    // SYSTEM INSTRUCTION
     // =========================================================
 
     const SYSTEM_INSTRUCTION = `
-You are Chatabot, a highly capable, helpful, accurate and intelligent AI assistant.
+You are Chatabot, a highly capable AI assistant.
 
-CORE BEHAVIOR:
-- Understand the user's actual intent before answering.
-- Give direct, useful and complete answers.
-- Do not unnecessarily repeat the user's question.
-- Use conversation history to maintain context.
-- Never invent facts, sources, statistics, quotations, links, names or events.
-- If information is uncertain, clearly say so.
+GENERAL INTELLIGENCE:
+- Understand the user's actual meaning, even when their grammar,
+  spelling, wording, or sentence structure is imperfect.
+- Use the full available conversation context before answering.
+- Connect the current message to earlier relevant messages.
+- Never pretend to remember information that is not present in the
+  supplied conversation context.
+- If the user refers to "that", "it", "this", "the previous thing",
+  or similar wording, resolve the reference from conversation history.
+- Do not unnecessarily ask the user to repeat information that is
+  already present in the conversation.
+- Give direct, useful and natural answers.
 - Prefer accuracy over guessing.
+- Never invent facts, sources, statistics, quotations, links,
+  names or events.
+- If something is uncertain, clearly say so.
 
 REASONING:
 - Think carefully before answering.
-- Break complicated problems into logical steps when useful.
-- For mathematics, calculate carefully and verify the result.
-- For programming, reason about the code before suggesting a solution.
-- When debugging, identify the likely cause before proposing a solution.
+- For difficult questions, reason step by step internally.
+- Verify calculations before giving mathematical answers.
+- For technical questions, inspect the full problem before answering.
+- When multiple interpretations are possible, use conversation context
+  to choose the most likely interpretation.
+- Do not expose private chain-of-thought. Give concise reasoning,
+  explanations, calculations, or conclusions when useful.
 
-VISION:
-- Analyze images supplied by the user when supported by the selected provider.
-- Carefully inspect images before answering.
-- Never invent visual details.
-- Read visible text when possible.
-- If something is unclear, say so.
+CONVERSATION MEMORY:
+- Treat all supplied previous user and assistant messages as relevant
+  conversation context.
+- Maintain continuity between turns.
+- Remember facts stated earlier in the current conversation.
+- If the user corrects something, use the corrected information.
+- Do not contradict earlier context without explaining why.
+
+LANGUAGE:
+- Match the user's language and style when practical.
+- If the user writes Roman Urdu, understand and respond naturally in
+  Roman Urdu when appropriate.
+- English is also supported.
+- Do not switch unnecessarily to another language.
 
 CODING:
-- Provide complete working code when appropriate.
+- Provide complete working code when requested.
 - Preserve existing functionality when modifying code.
 - Avoid unnecessary dependencies.
 - Check syntax and logic carefully.
+- When debugging, identify the likely cause and provide the fix.
+- If the user gives existing code, work from that code instead of
+  replacing unrelated functionality.
+
+MATH AND SCIENCE:
+- Calculate carefully.
+- Verify numerical results.
+- Show useful working when the user needs an explanation.
+
+VISION:
+- Analyze supplied images only when image information is actually
+  available.
+- Never invent visual details.
+- Read visible text when possible.
+- If an image is unclear, say what cannot be determined.
 
 SECURITY:
 - Help with defensive cybersecurity, secure coding, security concepts,
   vulnerability analysis and authorized testing.
 - Do not facilitate harmful or unauthorized attacks.
 
-CONVERSATION:
-- Use relevant conversation context.
-- Match the user's language when practical.
-- Keep simple questions simple and detailed questions detailed.
-
-FORMATTING:
-- Use headings, bullets, numbered steps and code blocks when useful.
-- Keep responses clear and natural.
-- Do not over-format simple answers.
+STYLE:
+- Be natural and helpful.
+- Simple questions should receive simple answers.
+- Complex questions can receive detailed answers.
+- Use headings, bullets and code blocks when useful.
+- Do not over-format normal conversation.
 
 OWNER:
-If the user asks who your owner is, who owns you, or asks about your owner, answer exactly:
+If the user asks who your owner is, who owns you, or asks about
+your owner, answer exactly:
 
 M. Rayyan Khan is my owner.
 `.trim();
@@ -118,7 +146,6 @@ M. Rayyan Khan is my owner.
     function detectAgent(text) {
       const value = String(text || "").toLowerCase();
 
-      // VIDEO FIRST
       if (
         /\b(generate|create|make|produce|animate)\b/.test(value) &&
         /\b(video|animation|clip|movie|film)\b/.test(value)
@@ -135,7 +162,6 @@ M. Rayyan Khan is my owner.
         return "video-generation";
       }
 
-      // IMAGE
       if (
         /\b(generate|create|make|draw)\b/.test(value) &&
         /\b(image|picture|photo|art|wallpaper|logo)\b/.test(value)
@@ -143,7 +169,6 @@ M. Rayyan Khan is my owner.
         return "image-generation";
       }
 
-      // WEBSITE
       if (
         /\b(website|webpage|url|site|link)\b/.test(value) &&
         /\b(analy[sz]e|read|review|check|summari[sz]e|inspect)\b/.test(
@@ -153,35 +178,40 @@ M. Rayyan Khan is my owner.
         return "website-analysis";
       }
 
-      // CODING
       if (
-        /\b(code|coding|program|programming|javascript|typescript|python|html|css|react|node|api|debug|bug|error|function|github)\b/.test(
+        /\b(code|coding|program|programming|javascript|typescript|python|html|css|react|node|api|debug|bug|error|function|github|sql|database|worker|cloudflare|supabase)\b/.test(
           value
         )
       ) {
         return "coding";
       }
 
-      // SOLVER
       if (
-        /\b(solve|calculate|equation|math|mathematics|physics|chemistry|derive|proof|problem)\b/.test(
+        /\b(solve|calculate|equation|math|mathematics|physics|chemistry|derive|proof|problem|percentage|percent|algebra|geometry|formula)\b/.test(
           value
         )
       ) {
         return "question-solver";
       }
 
+      // Difficult reasoning / planning / analysis
+      if (
+        /\b(explain deeply|deeply|reason|reasoning|analyze|analysis|compare|architecture|strategy|plan|why|how does|pros and cons|decision|logic|complex)\b/.test(
+          value
+        )
+      ) {
+        return "reasoning";
+      }
+
       return "chat";
     }
 
     // =========================================================
-    // NORMALIZE CHAT MESSAGES
+    // MESSAGE NORMALIZATION
     // =========================================================
 
     function normalizeMessages(messages) {
-      if (!Array.isArray(messages)) {
-        return [];
-      }
+      if (!Array.isArray(messages)) return [];
 
       return messages
         .filter(
@@ -238,13 +268,58 @@ M. Rayyan Khan is my owner.
     }
 
     // =========================================================
-    // GEMINI INTERACTIONS API
+    // CONTEXT MANAGEMENT
     // =========================================================
 
-    async function geminiInteraction(input) {
+    function buildConversation(messages, maxMessages = 80) {
+      const cleaned =
+        normalizeMessages(messages)
+          .filter(
+            (message) =>
+              message.role === "user" ||
+              message.role === "assistant"
+          );
+
+      // Keep the latest conversation context.
+      return cleaned.slice(-maxMessages);
+    }
+
+    function buildGeminiInput(messages) {
+      const conversation =
+        buildConversation(messages, 80);
+
+      return conversation.map((message) => ({
+        role: message.role,
+        content: [
+          {
+            type: "text",
+            text: message.content,
+          },
+        ],
+      }));
+    }
+
+    function buildCFMessages(messages, maxMessages = 40) {
+      const conversation =
+        buildConversation(messages, maxMessages);
+
+      return [
+        {
+          role: "system",
+          content: SYSTEM_INSTRUCTION,
+        },
+        ...conversation,
+      ];
+    }
+
+    // =========================================================
+    // GEMINI
+    // =========================================================
+
+    async function geminiInteraction(messages) {
       if (!env.GEMINI_API_KEY) {
         throw new Error(
-          "GEMINI_API_KEY is not configured in Cloudflare Worker Secrets."
+          "GEMINI_API_KEY is not configured."
         );
       }
 
@@ -259,7 +334,10 @@ M. Rayyan Khan is my owner.
           },
           body: JSON.stringify({
             model: GEMINI_CHAT_MODEL,
-            input,
+            system_instruction:
+              SYSTEM_INSTRUCTION,
+            input:
+              buildGeminiInput(messages),
           }),
         }
       );
@@ -292,138 +370,78 @@ M. Rayyan Khan is my owner.
       return data;
     }
 
-    // =========================================================
-    // EXTRACT GEMINI TEXT
-    // =========================================================
-
     function extractText(data) {
       if (
-        typeof data?.output_text ===
-          "string" &&
+        typeof data?.output_text === "string" &&
         data.output_text.trim()
       ) {
         return data.output_text.trim();
       }
 
-      const steps = Array.isArray(
-        data?.steps
-      )
-        ? data.steps
-        : [];
+      const collect = [];
 
-      const stepText = steps
-        .flatMap((step) => {
-          if (!step) return [];
+      function walk(value) {
+        if (!value) return;
 
+        if (typeof value === "string") {
+          if (value.trim()) collect.push(value);
+          return;
+        }
+
+        if (Array.isArray(value)) {
+          for (const item of value) {
+            walk(item);
+          }
+          return;
+        }
+
+        if (typeof value === "object") {
           if (
-            typeof step.text ===
-              "string" &&
-            step.text.trim()
+            typeof value.text === "string" &&
+            value.text.trim()
           ) {
-            return [step.text];
+            collect.push(value.text);
           }
 
-          if (
-            Array.isArray(
-              step.content
-            )
-          ) {
-            return step.content
-              .filter(
-                (content) =>
-                  content &&
-                  (content.type ===
-                    "text" ||
-                    content.type ===
-                      "output_text") &&
-                  typeof content.text ===
-                    "string"
-              )
-              .map(
-                (content) =>
-                  content.text
-              );
+          for (const [key, child] of Object.entries(value)) {
+            if (
+              key !== "text" &&
+              key !== "id" &&
+              key !== "model"
+            ) {
+              walk(child);
+            }
           }
-
-          return [];
-        })
-        .join("\n")
-        .trim();
-
-      if (stepText) {
-        return stepText;
+        }
       }
 
-      const outputs = Array.isArray(
-        data?.outputs
-      )
-        ? data.outputs
-        : [];
+      walk(data?.steps);
+      walk(data?.outputs);
 
-      const outputText = outputs
-        .flatMap((item) => {
-          if (!item) return [];
-
-          if (
-            typeof item.text ===
-              "string" &&
-            item.text.trim()
-          ) {
-            return [item.text];
-          }
-
-          if (
-            Array.isArray(
-              item.content
-            )
-          ) {
-            return item.content
-              .filter(
-                (content) =>
-                  content &&
-                  (content.type ===
-                    "text" ||
-                    content.type ===
-                      "output_text") &&
-                  typeof content.text ===
-                    "string"
-              )
-              .map(
-                (content) =>
-                  content.text
-              );
-          }
-
-          return [];
-        })
-        .join("\n")
-        .trim();
-
-      return outputText;
+      return collect.join("\n").trim();
     }
 
     // =========================================================
-    // CLOUDFLARE WORKERS AI
+    // CLOUDFLARE AI
     // =========================================================
 
-    async function cloudflareAI(
-      model,
-      messages
-    ) {
+    async function cloudflareAI(model, messages) {
       if (!env.AI) {
         throw new Error(
-          "Cloudflare AI binding (AI) is not configured."
+          "Cloudflare AI binding is not configured."
         );
       }
 
       const result =
         await env.AI.run(model, {
           messages,
+          max_tokens: 4096,
+          temperature: 0.4,
         });
 
       if (!result) {
         throw new Error(
-          "Cloudflare Workers AI returned an empty response."
+          "Cloudflare AI returned an empty response."
         );
       }
 
@@ -435,7 +453,7 @@ M. Rayyan Khan is my owner.
 
       if (!String(text).trim()) {
         throw new Error(
-          "Cloudflare Workers AI returned no text."
+          "Cloudflare AI returned no text."
         );
       }
 
@@ -443,7 +461,7 @@ M. Rayyan Khan is my owner.
     }
 
     // =========================================================
-    // FLUX.1 SCHNELL IMAGE GENERATION
+    // IMAGE GENERATION
     // =========================================================
 
     function normalizeGeneratedImage(image) {
@@ -452,26 +470,17 @@ M. Rayyan Khan is my owner.
         !image.trim()
       ) {
         throw new Error(
-          "FLUX.1 Schnell returned an invalid image."
+          "FLUX returned an invalid image."
         );
       }
 
-      const value =
-        image.trim();
+      const value = image.trim();
 
-      if (
-        /^data:image\//i.test(
-          value
-        )
-      ) {
+      if (/^data:image\//i.test(value)) {
         return value;
       }
 
-      if (
-        /^https?:\/\//i.test(
-          value
-        )
-      ) {
+      if (/^https?:\/\//i.test(value)) {
         return value;
       }
 
@@ -481,35 +490,33 @@ M. Rayyan Khan is my owner.
     async function generateImage(prompt) {
       if (!env.AI) {
         throw new Error(
-          "Cloudflare AI binding (AI) is not configured."
+          "Cloudflare AI binding is not configured."
         );
       }
 
-      if (!prompt || !String(prompt).trim()) {
+      const cleanPrompt =
+        String(prompt || "").trim();
+
+      if (!cleanPrompt) {
         throw new Error(
           "An image prompt is required."
         );
       }
 
-      const result = await env.AI.run(
-        CF_MODELS.image,
-        {
-          prompt: String(prompt).trim(),
-        }
-      );
-
-      if (!result) {
-        throw new Error(
-          "FLUX.1 Schnell returned an empty response."
+      const result =
+        await env.AI.run(
+          CF_MODELS.image,
+          {
+            prompt: cleanPrompt,
+          }
         );
-      }
 
       if (
-        typeof result.image !== "string" ||
-        !result.image.trim()
+        !result ||
+        typeof result.image !== "string"
       ) {
         throw new Error(
-          "FLUX.1 Schnell did not return an image."
+          "FLUX did not return an image."
         );
       }
 
@@ -519,13 +526,13 @@ M. Rayyan Khan is my owner.
     }
 
     // =========================================================
-    // HUGGING FACE / HUNYUAN HELPERS
+    // HUGGING FACE
     // =========================================================
 
     function getHFHeaders() {
       if (!env.HF_TOKEN) {
         throw new Error(
-          "HF_TOKEN is not configured in Cloudflare Worker Secrets."
+          "HF_TOKEN is not configured."
         );
       }
 
@@ -535,26 +542,16 @@ M. Rayyan Khan is my owner.
       };
     }
 
-    // =========================================================
-    // UPLOAD IMAGE TO HUNYUAN
-    // =========================================================
-
     async function uploadImageToHunyuan(imageInput) {
       if (!imageInput) {
         throw new Error(
-          "A reference image is required for HunyuanVideo."
+          "A reference image is required."
         );
       }
 
-      // -------------------------------------------------------
-      // Public URL
-      // -------------------------------------------------------
-
       if (
         typeof imageInput === "string" &&
-        /^https?:\/\//i.test(
-          imageInput
-        )
+        /^https?:\/\//i.test(imageInput)
       ) {
         return {
           path: imageInput,
@@ -567,15 +564,9 @@ M. Rayyan Khan is my owner.
         };
       }
 
-      // -------------------------------------------------------
-      // Data URL
-      // -------------------------------------------------------
-
       if (
         typeof imageInput === "string" &&
-        imageInput.startsWith(
-          "data:image/"
-        )
+        imageInput.startsWith("data:image/")
       ) {
         const match =
           imageInput.match(
@@ -588,11 +579,8 @@ M. Rayyan Khan is my owner.
           );
         }
 
-        const mimeType =
-          match[1];
-
-        const base64 =
-          match[2];
+        const mimeType = match[1];
+        const base64 = match[2];
 
         let binary;
 
@@ -605,15 +593,13 @@ M. Rayyan Khan is my owner.
             );
         } catch {
           throw new Error(
-            "Failed to decode the reference image."
+            "Failed to decode reference image."
           );
         }
 
         let extension = "jpg";
 
-        if (
-          mimeType.includes("png")
-        ) {
+        if (mimeType.includes("png")) {
           extension = "png";
         } else if (
           mimeType.includes("webp")
@@ -621,20 +607,16 @@ M. Rayyan Khan is my owner.
           extension = "webp";
         }
 
-        const blob =
+        const form = new FormData();
+
+        form.append(
+          "files",
           new Blob(
             [binary],
             {
               type: mimeType,
             }
-          );
-
-        const form =
-          new FormData();
-
-        form.append(
-          "files",
-          blob,
+          ),
           `chatabot-reference.${extension}`
         );
 
@@ -665,15 +647,14 @@ M. Rayyan Khan is my owner.
             JSON.parse(raw);
         } catch {
           throw new Error(
-            `Hunyuan image upload returned invalid JSON: ${raw}`
+            `Hunyuan upload returned invalid JSON: ${raw}`
           );
         }
 
         let path = null;
 
         if (Array.isArray(uploaded)) {
-          path =
-            uploaded[0];
+          path = uploaded[0];
         } else if (
           uploaded &&
           typeof uploaded === "object"
@@ -690,7 +671,7 @@ M. Rayyan Khan is my owner.
           !path
         ) {
           throw new Error(
-            `Hunyuan image upload did not return a valid file path: ${raw}`
+            "Hunyuan upload did not return a valid path."
           );
         }
 
@@ -706,10 +687,6 @@ M. Rayyan Khan is my owner.
           },
         };
       }
-
-      // -------------------------------------------------------
-      // Existing Gradio FileData
-      // -------------------------------------------------------
 
       if (
         typeof imageInput === "object" &&
@@ -739,19 +716,10 @@ M. Rayyan Khan is my owner.
       );
     }
 
-    // =========================================================
-    // EXTRACT VIDEO FROM GRADIO DATA
-    // =========================================================
-
     function extractVideoFromData(parsed) {
-      if (!parsed) {
-        return null;
-      }
+      if (!parsed) return null;
 
-      // Direct string URL/path
-      if (
-        typeof parsed === "string"
-      ) {
+      if (typeof parsed === "string") {
         if (
           /^https?:\/\//i.test(parsed) ||
           parsed.startsWith("/")
@@ -762,133 +730,74 @@ M. Rayyan Khan is my owner.
         return null;
       }
 
-      // Array returned by Gradio
       if (Array.isArray(parsed)) {
         for (const item of parsed) {
           const found =
-            extractVideoFromData(
-              item
-            );
+            extractVideoFromData(item);
 
-          if (found) {
-            return found;
-          }
+          if (found) return found;
         }
 
         return null;
       }
 
-      // Object / FileData
-      if (
-        typeof parsed === "object"
-      ) {
-        if (
-          typeof parsed.url ===
-            "string" &&
-          parsed.url.trim()
-        ) {
-          return parsed.url.trim();
+      if (typeof parsed === "object") {
+        for (const key of [
+          "url",
+          "path",
+          "name",
+        ]) {
+          if (
+            typeof parsed[key] === "string" &&
+            parsed[key].trim()
+          ) {
+            return parsed[key].trim();
+          }
         }
 
-        if (
-          typeof parsed.path ===
-            "string" &&
-          parsed.path.trim()
-        ) {
-          return parsed.path.trim();
-        }
+        for (const key of [
+          "video",
+          "value",
+          "data",
+          "output",
+        ]) {
+          if (parsed[key]) {
+            const found =
+              extractVideoFromData(
+                parsed[key]
+              );
 
-        if (
-          typeof parsed.name ===
-            "string" &&
-          parsed.name.trim()
-        ) {
-          return parsed.name.trim();
-        }
-
-        if (
-          parsed.video
-        ) {
-          return extractVideoFromData(
-            parsed.video
-          );
-        }
-
-        if (
-          parsed.value
-        ) {
-          return extractVideoFromData(
-            parsed.value
-          );
-        }
-
-        if (
-          parsed.data
-        ) {
-          return extractVideoFromData(
-            parsed.data
-          );
-        }
-
-        if (
-          Array.isArray(
-            parsed.output
-          )
-        ) {
-          return extractVideoFromData(
-            parsed.output
-          );
-        }
-
-        if (
-          parsed.output
-        ) {
-          return extractVideoFromData(
-            parsed.output
-          );
+            if (found) return found;
+          }
         }
       }
 
       return null;
     }
 
-    // =========================================================
-    // READ HUNYUAN SSE RESULT
-    // =========================================================
-
-    async function readHunyuanResult(
-      response
-    ) {
+    async function readHunyuanResult(response) {
       const text =
         await response.text();
 
       if (!response.ok) {
         throw new Error(
-          `HunyuanVideo polling failed (${response.status}): ${text}`
+          `Hunyuan polling failed (${response.status}): ${text}`
         );
       }
 
       const blocks =
         text
           .split(/\n\n+/)
-          .map(
-            (block) =>
-              block.trim()
+          .map((block) =>
+            block.trim()
           )
           .filter(Boolean);
 
       let lastData = null;
 
       for (const block of blocks) {
-        const lines =
-          block.split("\n");
-
-        for (const line of lines) {
-          if (
-            !line.startsWith(
-              "data:"
-            )
-          ) {
+        for (const line of block.split("\n")) {
+          if (!line.startsWith("data:")) {
             continue;
           }
 
@@ -899,8 +808,7 @@ M. Rayyan Khan is my owner.
 
           if (
             !rawData ||
-            rawData ===
-              "[DONE]"
+            rawData === "[DONE]"
           ) {
             continue;
           }
@@ -909,35 +817,23 @@ M. Rayyan Khan is my owner.
 
           try {
             parsed =
-              JSON.parse(
-                rawData
-              );
+              JSON.parse(rawData);
           } catch {
-            // Some Gradio responses may contain
-            // non-JSON status information.
             continue;
           }
 
-          lastData =
-            parsed;
+          lastData = parsed;
 
-          // Error returned by the Space
           if (
             parsed &&
-            typeof parsed ===
-              "object" &&
+            typeof parsed === "object" &&
             parsed.error
           ) {
             throw new Error(
-              String(
-                parsed.error
-              )
+              String(parsed.error)
             );
           }
 
-          // Gradio can return a FileData object,
-          // an array containing FileData,
-          // or another nested result.
           const video =
             extractVideoFromData(
               parsed
@@ -958,25 +854,6 @@ M. Rayyan Khan is my owner.
       };
     }
 
-    // =========================================================
-    // HUNYUANVIDEO GENERATION
-    //
-    // CURRENT SPACE SIGNATURE:
-    //
-    // generate(
-    //   input_image,
-    //   prompt,
-    //   length,
-    //   steps,
-    //   shift,
-    //   seed,
-    //   guidance
-    // )
-    //
-    // IMPORTANT:
-    // doRewrite IS NOT SENT.
-    // =========================================================
-
     async function generateHunyuanVideo({
       image,
       prompt,
@@ -986,18 +863,9 @@ M. Rayyan Khan is my owner.
       seed = -1,
       guidance = 1,
     }) {
-      if (
-        !prompt ||
-        !String(prompt).trim()
-      ) {
+      if (!prompt?.trim()) {
         throw new Error(
           "A video prompt is required."
-        );
-      }
-
-      if (!env.HF_TOKEN) {
-        throw new Error(
-          "HF_TOKEN is missing. Add your Hugging Face token as a Cloudflare Worker Secret."
         );
       }
 
@@ -1007,18 +875,10 @@ M. Rayyan Khan is my owner.
         );
       }
 
-      // -------------------------------------------------------
-      // Upload reference image
-      // -------------------------------------------------------
-
       const fileData =
         await uploadImageToHunyuan(
           image
         );
-
-      // -------------------------------------------------------
-      // Start Gradio job
-      // -------------------------------------------------------
 
       const startResponse =
         await fetch(
@@ -1030,30 +890,15 @@ M. Rayyan Khan is my owner.
               "Content-Type":
                 "application/json",
             },
-
-            // EXACTLY 7 INPUTS.
-            // No doRewrite.
             body: JSON.stringify({
               data: [
                 fileData,
-                String(
-                  prompt
-                ).trim(),
-                Number(
-                  length
-                ),
-                Number(
-                  steps
-                ),
-                Number(
-                  shift
-                ),
-                Number(
-                  seed
-                ),
-                Number(
-                  guidance
-                ),
+                String(prompt).trim(),
+                Number(length),
+                Number(steps),
+                Number(shift),
+                Number(seed),
+                Number(guidance),
               ],
             }),
           }
@@ -1064,7 +909,7 @@ M. Rayyan Khan is my owner.
 
       if (!startResponse.ok) {
         throw new Error(
-          `HunyuanVideo job start failed (${startResponse.status}): ${startRaw}`
+          `Hunyuan job start failed (${startResponse.status}): ${startRaw}`
         );
       }
 
@@ -1072,12 +917,10 @@ M. Rayyan Khan is my owner.
 
       try {
         startData =
-          JSON.parse(
-            startRaw
-          );
+          JSON.parse(startRaw);
       } catch {
         throw new Error(
-          `HunyuanVideo returned an invalid job response: ${startRaw}`
+          `Hunyuan returned invalid job response: ${startRaw}`
         );
       }
 
@@ -1086,32 +929,15 @@ M. Rayyan Khan is my owner.
 
       if (!eventId) {
         throw new Error(
-          `HunyuanVideo did not return an event ID: ${startRaw}`
+          "Hunyuan did not return an event ID."
         );
       }
 
-      // -------------------------------------------------------
-      // Poll job
-      // -------------------------------------------------------
+      let lastPollData = null;
 
-      const maxAttempts = 30;
-
-      let lastPollData =
-        null;
-
-      for (
-        let attempt = 0;
-        attempt <
-        maxAttempts;
-        attempt++
-      ) {
-        // 3 seconds between polls.
-        await new Promise(
-          (resolve) =>
-            setTimeout(
-              resolve,
-              3000
-            )
+      for (let attempt = 0; attempt < 30; attempt++) {
+        await new Promise((resolve) =>
+          setTimeout(resolve, 3000)
         );
 
         const pollResponse =
@@ -1142,74 +968,35 @@ M. Rayyan Khan is my owner.
             video:
               result.video,
             actualPrompt:
-              String(
-                prompt
-              ).trim(),
+              String(prompt).trim(),
           };
         }
       }
 
       throw new Error(
-        `HunyuanVideo generation timed out after waiting for the Space. Last response: ${JSON.stringify(
+        `HunyuanVideo timed out. Last response: ${JSON.stringify(
           lastPollData
         )}`
       );
     }
 
-    // =========================================================
-    // PROMPT-ONLY VIDEO
-    //
-    // Prompt
-    //   ↓
-    // FLUX.1 Schnell
-    //   ↓
-    // Reference image
-    //   ↓
-    // HunyuanVideo 1.5
-    //   ↓
-    // Video
-    // =========================================================
-
     async function generatePromptOnlyVideo(
       prompt,
       options = {}
     ) {
-      if (
-        !prompt ||
-        !String(prompt).trim()
-      ) {
+      const cleanPrompt =
+        String(prompt || "").trim();
+
+      if (!cleanPrompt) {
         throw new Error(
           "A video prompt is required."
         );
       }
 
-      const cleanPrompt =
-        String(
-          prompt
-        ).trim();
-
-      // -------------------------------------------------------
-      // STEP 1 — Generate reference image
-      // -------------------------------------------------------
-
       const referenceImage =
         await generateImage(
           cleanPrompt
         );
-
-      if (
-        typeof referenceImage !==
-          "string" ||
-        !referenceImage
-      ) {
-        throw new Error(
-          "FLUX failed to create the automatic reference image."
-        );
-      }
-
-      // -------------------------------------------------------
-      // STEP 2 — Generate video
-      // -------------------------------------------------------
 
       const result =
         await generateHunyuanVideo({
@@ -1218,20 +1005,15 @@ M. Rayyan Khan is my owner.
           prompt:
             cleanPrompt,
           length:
-            options.length ??
-            61,
+            options.length ?? 61,
           steps:
-            options.steps ??
-            6,
+            options.steps ?? 6,
           shift:
-            options.shift ??
-            5,
+            options.shift ?? 5,
           seed:
-            options.seed ??
-            -1,
+            options.seed ?? -1,
           guidance:
-            options.guidance ??
-            1,
+            options.guidance ?? 1,
         });
 
       return {
@@ -1241,76 +1023,11 @@ M. Rayyan Khan is my owner.
     }
 
     // =========================================================
-    // BUILD GEMINI INPUT
-    // =========================================================
-
-    function buildGeminiInput(
-      messages
-    ) {
-      const cleaned =
-        normalizeMessages(messages);
-
-      const conversation =
-        cleaned
-          .filter(
-            (message) =>
-              message.role !==
-              "system"
-          )
-          .map((message) => {
-            const label =
-              message.role ===
-              "assistant"
-                ? "Assistant"
-                : "User";
-
-            return `${label}: ${message.content}`;
-          })
-          .join("\n\n");
-
-      return `${SYSTEM_INSTRUCTION}
-
-CONVERSATION:
-${conversation}
-
-Assistant:`;
-    }
-
-    // =========================================================
-    // BUILD CLOUDFLARE MESSAGES
-    // =========================================================
-
-    function buildCFMessages(
-      messages
-    ) {
-      const cleaned =
-        normalizeMessages(messages);
-
-      return [
-        {
-          role: "system",
-          content:
-            SYSTEM_INSTRUCTION,
-        },
-        ...cleaned
-          .filter(
-            (message) =>
-              message.role ===
-                "user" ||
-              message.role ===
-                "assistant"
-          )
-          .slice(-30),
-      ];
-    }
-
-    // =========================================================
     // CHAT API
     // =========================================================
 
     if (
-      url.pathname ===
-        "/api/chat" &&
+      url.pathname === "/api/chat" &&
       request.method === "POST"
     ) {
       try {
@@ -1325,6 +1042,7 @@ Assistant:`;
         if (!messages.length) {
           return jsonResponse(
             {
+              success: false,
               error:
                 "No messages were provided.",
             },
@@ -1337,8 +1055,7 @@ Assistant:`;
             .reverse()
             .find(
               (message) =>
-                message.role ===
-                "user"
+                message.role === "user"
             )?.content || "";
 
         const agent =
@@ -1346,9 +1063,9 @@ Assistant:`;
             lastUserMessage
           );
 
-        // =====================================================
-        // VIDEO GENERATION
-        // =====================================================
+        // -------------------------------------------------------
+        // VIDEO
+        // -------------------------------------------------------
 
         if (
           agent ===
@@ -1386,11 +1103,10 @@ Assistant:`;
               mimeType:
                 "video/mp4",
             });
-          } catch (videoError) {
+          } catch (error) {
             console.error(
-              "Prompt-only video generation failed:",
-              videoError?.message ||
-                videoError
+              "Video generation failed:",
+              error?.message || error
             );
 
             return jsonResponse(
@@ -1401,7 +1117,7 @@ Assistant:`;
                 agent:
                   "Video Generation Agent",
                 error:
-                  videoError?.message ||
+                  error?.message ||
                   "Video generation failed.",
               },
               500
@@ -1409,9 +1125,9 @@ Assistant:`;
           }
         }
 
-        // =====================================================
-        // IMAGE GENERATION
-        // =====================================================
+        // -------------------------------------------------------
+        // IMAGE
+        // -------------------------------------------------------
 
         if (
           agent ===
@@ -1439,11 +1155,10 @@ Assistant:`;
               mimeType:
                 "image/png",
             });
-          } catch (imageError) {
+          } catch (error) {
             console.error(
-              "FLUX.1 Schnell image generation failed:",
-              imageError?.message ||
-                imageError
+              "Image generation failed:",
+              error?.message || error
             );
 
             return jsonResponse(
@@ -1454,7 +1169,7 @@ Assistant:`;
                 agent:
                   "Image Generation Agent",
                 error:
-                  imageError?.message ||
+                  error?.message ||
                   "Image generation failed.",
               },
               500
@@ -1462,22 +1177,94 @@ Assistant:`;
           }
         }
 
-        // =====================================================
-        // GEMINI PRIMARY
-        // =====================================================
+        // -------------------------------------------------------
+        // CODING
+        // -------------------------------------------------------
 
         if (
-          env.GEMINI_API_KEY
+          agent === "coding" &&
+          env.AI
         ) {
           try {
-            const input =
-              buildGeminiInput(
-                messages
+            const answer =
+              await cloudflareAI(
+                CF_MODELS.coding,
+                buildCFMessages(
+                  messages,
+                  40
+                )
               );
 
+            return jsonResponse({
+              success: true,
+              provider:
+                "cloudflare",
+              model:
+                CF_MODELS.coding,
+              agent,
+              response:
+                answer,
+              text:
+                answer,
+            });
+          } catch (error) {
+            console.error(
+              "Coding model failed:",
+              error?.message || error
+            );
+          }
+        }
+
+        // -------------------------------------------------------
+        // DIFFICULT REASONING / MATH
+        // -------------------------------------------------------
+
+        if (
+          (
+            agent === "reasoning" ||
+            agent === "question-solver"
+          ) &&
+          env.AI
+        ) {
+          try {
+            const answer =
+              await cloudflareAI(
+                CF_MODELS.reasoning,
+                buildCFMessages(
+                  messages,
+                  40
+                )
+              );
+
+            return jsonResponse({
+              success: true,
+              provider:
+                "cloudflare",
+              model:
+                CF_MODELS.reasoning,
+              agent,
+              response:
+                answer,
+              text:
+                answer,
+            });
+          } catch (error) {
+            console.error(
+              "Reasoning model failed:",
+              error?.message || error
+            );
+          }
+        }
+
+        // -------------------------------------------------------
+        // GEMINI PRIMARY
+        // -------------------------------------------------------
+
+        if (env.GEMINI_API_KEY) {
+          try {
             const data =
               await geminiInteraction(
-                input
+                messages
               );
 
             const answer =
@@ -1497,47 +1284,26 @@ Assistant:`;
                   answer,
               });
             }
-          } catch (
-            geminiError
-          ) {
+          } catch (error) {
             console.error(
               "Gemini failed:",
-              geminiError?.message ||
-                geminiError
+              error?.message || error
             );
           }
         }
 
-        // =====================================================
-        // CLOUDFLARE FALLBACK
-        // =====================================================
+        // -------------------------------------------------------
+        // GENERAL CLOUDFLARE FALLBACK
+        // -------------------------------------------------------
 
         if (env.AI) {
-          let model =
-            CF_MODELS.chat;
-
-          if (
-            agent ===
-            "coding"
-          ) {
-            model =
-              CF_MODELS.coding;
-          }
-
-          if (
-            agent ===
-            "question-solver"
-          ) {
-            model =
-              CF_MODELS.solver;
-          }
-
           try {
             const answer =
               await cloudflareAI(
-                model,
+                CF_MODELS.chat,
                 buildCFMessages(
-                  messages
+                  messages,
+                  40
                 )
               );
 
@@ -1545,33 +1311,27 @@ Assistant:`;
               success: true,
               provider:
                 "cloudflare",
-              model,
+              model:
+                CF_MODELS.chat,
               agent,
               response:
                 answer,
               text:
                 answer,
             });
-          } catch (
-            cfError
-          ) {
+          } catch (error) {
             console.error(
-              "Cloudflare AI failed:",
-              cfError?.message ||
-                cfError
+              "Llama fallback failed:",
+              error?.message || error
             );
           }
         }
-
-        // =====================================================
-        // NO PROVIDER
-        // =====================================================
 
         return jsonResponse(
           {
             success: false,
             error:
-              "No AI provider is currently available. Configure GEMINI_API_KEY or the Cloudflare AI binding.",
+              "No AI provider is currently available.",
           },
           503
         );
@@ -1598,8 +1358,7 @@ Assistant:`;
     // =========================================================
 
     if (
-      url.pathname ===
-        "/api/image" &&
+      url.pathname === "/api/image" &&
       request.method === "POST"
     ) {
       try {
@@ -1663,8 +1422,7 @@ Assistant:`;
     // =========================================================
 
     if (
-      url.pathname ===
-        "/api/video" &&
+      url.pathname === "/api/video" &&
       request.method === "POST"
     ) {
       try {
@@ -1697,56 +1455,38 @@ Assistant:`;
 
         let result;
 
-        // -------------------------------------------------------
-        // PROMPT ONLY
-        // -------------------------------------------------------
-
         if (!image) {
           result =
             await generatePromptOnlyVideo(
               prompt,
               {
                 length:
-                  body?.length ??
-                  61,
+                  body?.length ?? 61,
                 steps:
-                  body?.steps ??
-                  6,
+                  body?.steps ?? 6,
                 shift:
-                  body?.shift ??
-                  5,
+                  body?.shift ?? 5,
                 seed:
-                  body?.seed ??
-                  -1,
+                  body?.seed ?? -1,
                 guidance:
-                  body?.guidance ??
-                  1,
+                  body?.guidance ?? 1,
               }
             );
         } else {
-          // -----------------------------------------------------
-          // IMAGE + PROMPT
-          // -----------------------------------------------------
-
           result =
             await generateHunyuanVideo({
               image,
               prompt,
               length:
-                body?.length ??
-                61,
+                body?.length ?? 61,
               steps:
-                body?.steps ??
-                6,
+                body?.steps ?? 6,
               shift:
-                body?.shift ??
-                5,
+                body?.shift ?? 5,
               seed:
-                body?.seed ??
-                -1,
+                body?.seed ?? -1,
               guidance:
-                body?.guidance ??
-                1,
+                body?.guidance ?? 1,
             });
         }
 
@@ -1778,7 +1518,7 @@ Assistant:`;
         });
       } catch (error) {
         console.error(
-          "HunyuanVideo API error:",
+          "Video API error:",
           error
         );
 
@@ -1797,46 +1537,66 @@ Assistant:`;
     }
 
     // =========================================================
-    // API HEALTH CHECK
+    // HEALTH
     // =========================================================
 
     if (
-      url.pathname ===
-        "/api/health" &&
+      url.pathname === "/api/health" &&
       request.method === "GET"
     ) {
       return jsonResponse({
         success: true,
         service: "Chatabot",
-        worker:
-          "chatabot-ai",
+        worker: "chatabot-ai",
+
         gemini:
           Boolean(
             env.GEMINI_API_KEY
           ),
+
         cloudflareAI:
           Boolean(env.AI),
+
         assets:
           Boolean(env.ASSETS),
+
+        chatModel:
+          GEMINI_CHAT_MODEL,
+
+        reasoningModel:
+          CF_MODELS.reasoning,
+
+        codingModel:
+          CF_MODELS.coding,
+
+        fallbackModel:
+          CF_MODELS.chat,
+
         imageModel:
           CF_MODELS.image,
+
         videoModel:
           "Tencent HunyuanVideo 1.5",
+
         videoProvider:
           "Hugging Face ZeroGPU",
+
         videoEndpoint:
           "/api/video",
+
         videoFlow:
           "Prompt → FLUX → HunyuanVideo",
+
         promptOnlyVideo:
           true,
+
         hunyuanToken:
           Boolean(env.HF_TOKEN),
       });
     }
 
     // =========================================================
-    // SERVE FRONTEND
+    // FRONTEND
     // =========================================================
 
     if (env.ASSETS) {
@@ -1844,10 +1604,6 @@ Assistant:`;
         request
       );
     }
-
-    // =========================================================
-    // FALLBACK
-    // =========================================================
 
     return new Response(
       "Chatabot Worker is running, but the ASSETS binding is not configured.",
